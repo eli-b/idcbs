@@ -1,3 +1,4 @@
+#include <cfloat>
 #include "map_loader.h"
 
 using namespace boost;

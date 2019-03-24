@@ -47,7 +47,7 @@ public:
 	
 	// tools
 	int extractLastGoalTimestep(int goal_location, const vector< list< tuple<int, int, bool> > >* cons);
-	inline bool isConstrained(int direction, int next_id, int next_timestep, 
+	bool isConstrained(int direction, int next_id, int next_timestep,
 		const std::vector < std::unordered_map<int, ConstraintState > >& cons_table)  const;
 	void updatePath(const LLNode* goal, vector<PathEntry> &path); 
 	int numOfConflictsForStep(int curr_id, int next_id, int next_timestep, 

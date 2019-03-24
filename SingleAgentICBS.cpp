@@ -70,7 +70,7 @@ int SingleAgentICBS::extractLastGoalTimestep(int goal_location, const vector< li
 // Checks if a vaild path found (wrt my_map and constraints)
 // input: curr_id (location at time next_timestep-1) ; next_id (location at time next_timestep); next_timestep
 // cons[timestep] is a list of <loc1,loc2, bool> of (vertex/edge) constraints for that timestep. (loc2=-1 for vertex constraint).
-inline bool SingleAgentICBS::isConstrained(int direction, int next_id, int next_timestep, 
+bool SingleAgentICBS::isConstrained(int direction, int next_id, int next_timestep,
 	const std::vector < std::unordered_map<int, ConstraintState > >& cons_table)  const 
 {
 	if (my_map[next_id]) // obstacles
