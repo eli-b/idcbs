@@ -1,5 +1,12 @@
 #include "ICBSNode.h"
 
+ICBSNode::ICBSNode() : parent(nullptr)
+{
+	g_val = 0;
+	makespan = 0;
+	depth = 0;
+}
+
 ICBSNode::ICBSNode(ICBSNode* parent) : parent(parent)
 {
 	g_val = parent->g_val;

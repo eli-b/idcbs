@@ -56,7 +56,7 @@ public:
 	focal_handle_t focal_handle;
 
 	void clear();
-	ICBSNode() {}
+	ICBSNode();
 	ICBSNode(ICBSNode* parent);
 };
 
