@@ -20,8 +20,8 @@ public:
 	int time_limit;
 
 	// statistics of efficiency
-	int runtime = 0; // not include preprocessing
-	int prepTime = 0; // CPU time for preprocessing
+	clock_t runtime = 0; // not include preprocessing
+	clock_t prepTime = 0; // CPU time for preprocessing
 	uint64_t HL_num_expanded = 0;
 	uint64_t HL_num_generated = 0;
 	uint64_t LL_num_expanded = 0;

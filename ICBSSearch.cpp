@@ -1312,7 +1312,7 @@ void ICBSSearch::printConstraints(const ICBSNode* n) const
 
 void ICBSSearch::printResults() const
 {
-	if (runtime > time_limit)  // timeout
+	if (runtime > time_limit * CLOCKS_PER_SEC)  // timeout
 	{
 		std::cout << "        Timeout  ; ";
 	}
@@ -1327,10 +1327,10 @@ void ICBSSearch::printResults() const
 	std::cout << solution_cost << "," <<
 		min_f_val - dummy_start->g_val << "," <<
 		dummy_start->g_val << "," << dummy_start->f_val << "," <<
-		prepTime << "," <<
+	    ((float) prepTime) / CLOCKS_PER_SEC << "," <<
 		HL_num_expanded << "," << HL_num_generated << "," <<
 		LL_num_expanded << "," << LL_num_generated << "," <<
-		runtime << "," <<  std::endl;
+		((float) runtime) / CLOCKS_PER_SEC << "," <<  std::endl;
 }
 
 void ICBSSearch::saveResults(const string& outputFile, const string& agentFile, const string& solver) const
@@ -1340,10 +1340,10 @@ void ICBSSearch::saveResults(const string& outputFile, const string& agentFile, 
 	stats << solution_cost << "," << 
 		min_f_val - dummy_start->g_val << "," <<
 		dummy_start->g_val << "," << dummy_start->f_val << "," <<
-		prepTime << "," <<
+	    ((float) prepTime) / CLOCKS_PER_SEC << "," <<
 		HL_num_expanded << "," << HL_num_generated << "," <<
 		LL_num_expanded << "," << LL_num_generated << "," <<
-		runtime << "," <<
+	    ((float) runtime) / CLOCKS_PER_SEC << "," <<
 		solver << "," << agentFile << "," << endl;
 	stats.close();
 }
@@ -1362,8 +1362,8 @@ bool ICBSSearch::runICBSSearch()
 
 	while (!focal_list.empty()) 
 	{
-		runtime = (std::clock() - start);
-		if (runtime > time_limit)  // timeout
+		runtime = std::clock() - start;
+		if (runtime > time_limit * CLOCKS_PER_SEC)  // timeout
 		{
 			break;
 		}
@@ -1526,7 +1526,7 @@ bool ICBSSearch::runICBSSearch()
 			cout << " ; (after) " << focal_list_threshold << endl << endl;
 	}  // end of while loop
 
-	runtime = (std::clock() - start); //  get time
+	runtime = std::clock() - start; //  get time
 	printResults();
 	return solution_found;
 }
@@ -1538,7 +1538,7 @@ ICBSSearch::ICBSSearch(const MapLoader& ml, const AgentsLoader& al, double focal
 	std::clock_t start;
 	start = std::clock();
 
-	time_limit = cutoffTime * 1000;
+	time_limit = cutoffTime;
 	this->num_col = ml.cols;
 	num_of_agents = al.num_of_agents;
 	map_size = ml.rows*ml.cols;
