@@ -115,7 +115,7 @@ void ICBSSearch::collectConstraints(ICBSNode* curr, std::list<pair<int, Constrai
 // build the constraint table 
 // update cons_table: cons_table[time_step][location].vertex or .edge = true or false
 // update start and goal: the two landmarks such that the paths between them violates the new posted constraint (at timestep)
-// return last goal constraint timestep
+// return last goal constraint timestep - the time of the last constraint on an agent's goal
 int ICBSSearch::buildConstraintTable(ICBSNode* curr, int agent_id, int timestep,
 	std::vector < std::unordered_map<int, ConstraintState > >& cons_table, 
 	pair<int,int>& start, pair<int,int>& goal)
@@ -161,7 +161,7 @@ int ICBSSearch::buildConstraintTable(ICBSNode* curr, int agent_id, int timestep,
 					}
 					constraints_positive.push_back(con);
 				}
-				else // for the other agents, it is equalvelent to a negative constraint
+				else // for the other agents, it is equivalent to a negative constraint
 				{
 					constraints_negative.push_back(con);
 					if (get<0>(con) == goal.first && get<1>(con) < 0 && lastGoalConsTimestep <  get<2>(con))
@@ -808,7 +808,7 @@ bool ICBSSearch::generateChild(ICBSNode*  node)
 	int h = 0;
 	for (auto con : node->constraints)
 	{
-		if (get<3>(con)) //positve constraint
+		if (get<3>(con)) //positive constraint
 		{
 			for (int ag = 0; ag < num_of_agents; ag++)
 			{
@@ -956,7 +956,7 @@ bool ICBSSearch::generateChild(ICBSNode*  node)
 }
 
 // plan a path for an agent in a child node
-bool ICBSSearch::findPathForSingleAgent(ICBSNode*  node, int ag, int timestep, int lowerbound)
+bool ICBSSearch::findPathForSingleAgent(ICBSNode* node, int ag, int timestep, int lowerbound)
 {
 	// extract all constraints on agent ag, and build constraint table
 	ICBSNode* curr = node;
@@ -970,7 +970,7 @@ bool ICBSSearch::findPathForSingleAgent(ICBSNode*  node, int ag, int timestep, i
 	std::vector < std::unordered_map<int, ConstraintState > > cat(node->makespan + 1);
 	buildConflictAvoidanceTable(cat, ag, *node);
 	
-	// find a path w.r.t cons_vec (and prioretize by res_table).
+	// find a path w.r.t cons_vec (and prioritize by res_table).
 	pair<int,vector<PathEntry>> newPath;
 	newPath.first = ag;
 	newPath.second = *paths[ag];

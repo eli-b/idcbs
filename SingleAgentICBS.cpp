@@ -120,12 +120,13 @@ int SingleAgentICBS::numOfConflictsForStep(int curr_id, int next_id, int next_ti
 
 
 
-// find a path from lcoation start.first at timestep start.second to location goal.first at timestep goal.second
+// find a path from location start.first at timestep start.second to location goal.first at timestep goal.second
 // that satisfies all constraints in cons_table
 // while minimizing conflicts with paths in cat
 // return true if a path found (and updates path) or false if no path exists
 // Since we don't have to find the SHORTEST path, we only use FOCAL (without OPEN) here and prune all nodes 
 // that cannot reach the goal at the given timestep
+// This is used to re-plan a (sub-)path between two positive constraints.
 bool SingleAgentICBS::findPath(vector<PathEntry> &path, 
 	const std::vector < std::unordered_map<int, ConstraintState > >& cons_table,
 	const std::vector < std::unordered_map<int, ConstraintState > >& cat,
