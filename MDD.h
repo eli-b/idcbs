@@ -7,7 +7,7 @@ public:
 	MDDNode(int currloc, MDDNode* parent)
 	{
 		location = currloc; 
-		if(parent == NULL)
+		if (parent == NULL)
 			level = 0;
 		else
 		{

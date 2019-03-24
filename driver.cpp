@@ -22,7 +22,7 @@ int main(int argc, char** argv)
 		("warehouseWidth,b", po::value<int>()->default_value(0), "width of working stations on both sides, for generating instacnes")
 		("heuristic,h", po::value<bool>()->default_value(true), "heuristics for the high-level")
 		("split,p", po::value<std::string>()->default_value("NON_DISJOINT"), "Split Strategy (NON_DISJOINT, RANDOM, SINGLETONS, WIDTH, DISJOINT3)")		
-		("propagation", po::value<bool>()->default_value(true), "propogating positive constraints for  SINGLETONS and WIDTH")
+		("propagation", po::value<bool>()->default_value(true), "propagating positive constraints for SINGLETONS and WIDTH")
 		("screen", po::value<int>()->default_value(0), "screen (0: only results; 1: details)")
 		("cutoffTime", po::value<int>()->default_value(300), "cutoff time (seconds)")
 		("seed", po::value<int>()->default_value(0), "random seed")
@@ -68,7 +68,6 @@ int main(int argc, char** argv)
 	if (vm["split"].as<string>() != "NON_DISJOINT")
 		cout << vm["split"].as<string>() << "+";
 
-	
 	ICBSSearch icbs(ml, al, 1.0, p, vm["heuristic"].as<bool>(), vm["cutoffTime"].as<int>());
 	icbs.screen = vm["screen"].as<int>();
 	icbs.propagation = vm["propagation"].as<bool>();

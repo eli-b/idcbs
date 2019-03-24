@@ -5,7 +5,7 @@ using namespace std;
 
 int RANDOM_WALK_STEPS = 100000;
 
-AgentsLoader::AgentsLoader(string fname, const MapLoader &ml, int agentsNum = 0, int width = 0) // width is for wahouse generator
+AgentsLoader::AgentsLoader(string fname, const MapLoader &ml, int agentsNum = 0, int width = 0) // width is for warehouse generator
 {
 	string line;
 
@@ -41,7 +41,7 @@ AgentsLoader::AgentsLoader(string fname, const MapLoader &ml, int agentsNum = 0,
 		}
 		myfile.close();
 	} 
-	else if(agentsNum > 0 && width == 0)//Generate agents randomly
+	else if (agentsNum > 0 && width == 0)  // Generate agents randomly
 	{
 		this->num_of_agents = agentsNum;
 		vector<bool> starts(ml.rows * ml.cols, false);

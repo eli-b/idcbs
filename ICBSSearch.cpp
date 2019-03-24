@@ -131,11 +131,11 @@ int ICBSSearch::buildConstraintTable(ICBSNode* curr, int agent_id, int timestep,
 		{
 			if (get<3>(con)) // positive constraint is valid for everyone
 			{
-				if(curr->agent_id == agent_id) // for the constrained agent, it is a landmark
+				if (curr->agent_id == agent_id) // for the constrained agent, it is a landmark
 				{
-					if(get<1>(con) < 0) // vertex constraint
+					if (get<1>(con) < 0) // vertex constraint
 					{
-						if(start.second < get<2>(con) && get<2>(con) < timestep) // the landmark is between (start.second, timestep)
+						if (start.second < get<2>(con) && get<2>(con) < timestep) // the landmark is between (start.second, timestep)
 						{ // update start
 							start.first = get<0>(con);
 							start.second = get<2>(con);
@@ -164,7 +164,7 @@ int ICBSSearch::buildConstraintTable(ICBSNode* curr, int agent_id, int timestep,
 				else // for the other agents, it is equalvelent to a negative constraint
 				{
 					constraints_negative.push_back(con);
-					if(get<0>(con) == goal.first && get<1>(con) < 0 && lastGoalConsTimestep <  get<2>(con))
+					if (get<0>(con) == goal.first && get<1>(con) < 0 && lastGoalConsTimestep <  get<2>(con))
 						lastGoalConsTimestep = get<2>(con); // update last goal constraint timestep
 				}
 			}
@@ -180,7 +180,7 @@ int ICBSSearch::buildConstraintTable(ICBSNode* curr, int agent_id, int timestep,
 				}
 				else if (a2 == agent_id)
 				{
-					if(get<1>(con) >= 0) // edge constraint
+					if (get<1>(con) >= 0) // edge constraint
 					{ // need to swap lcoations
 						constraints_negative.push_back(make_tuple(get<1>(con), get<0>(con), get<2>(con), false));
 					}
@@ -202,14 +202,14 @@ int ICBSSearch::buildConstraintTable(ICBSNode* curr, int agent_id, int timestep,
 		}
 		curr = curr->parent;
 	}
-	if(lastGoalConsTimestep > goal.second) // because we only need to replan paths before goal.second
+	if (lastGoalConsTimestep > goal.second) // because we only need to replan paths before goal.second
 		lastGoalConsTimestep = -1;
 
 	for (list< Constraint >::iterator it = constraints_negative.begin(); it != constraints_negative.end(); it++) 
 	{
-		if(!get<3>(*it)) // it is a negetive constraint for this agent
+		if (!get<3>(*it)) // it is a negetive constraint for this agent
 		{
-			if(get<1>(*it) < 0) // vertex constraint
+			if (get<1>(*it) < 0) // vertex constraint
 				cons_table[get<2>(*it)][get<0>(*it)].vertex = true;
 			else // edge constraint
 			{
@@ -413,7 +413,7 @@ std::shared_ptr<Conflict> ICBSSearch::classifyConflicts(ICBSNode &parent)
 		}
 		if (cardinal1 && cardinal2)
 		{
-			if (!HL_heuristic)// find a cardinal conflict, return it immediately
+			if (!HL_heuristic)// found a cardinal conflict, return it immediately
 			{
 				conflictType = conflict_type::CARDINAL;
 				return con;
@@ -523,7 +523,7 @@ std::shared_ptr<Conflict> ICBSSearch::getHighestPriorityConflict(const list<std:
 				w4 = paths[get<1>(*choose)]->at(get<4>(*choose)).numMDDNodes;
 			if (w1 * w2 < w3 * w4)
 				choose = conf;
-			else if(w1 * w2 == w3 * w4)
+			else if (w1 * w2 == w3 * w4)
 			{
 				int single1 = 0;
 				int single2 = 0;
@@ -976,7 +976,7 @@ bool ICBSSearch::findPathForSingleAgent(ICBSNode*  node, int ag, int timestep, i
 	newPath.second = *paths[ag];
 	bool foundSol;
 
-	if(goal.second  >= paths[ag]->size())
+	if (goal.second  >= paths[ag]->size())
 	{
 		foundSol = search_engines[ag]->findShortestPath(newPath.second, cons_table, cat, start, goal, lowerbound, lastGoalConTimestep);
 	}
@@ -1029,7 +1029,7 @@ bool ICBSSearch::findPaths(ICBSNode*  node)
 {
 	for(auto p: node->new_paths)
 	{
-		if(p.second.size() <= 1)
+		if (p.second.size() <= 1)
 		{
 			if (!findPathForSingleAgent(node, p.first, p.second.back().location, p.second.back().location))
 			{
@@ -1054,7 +1054,7 @@ bool ICBSSearch::findPaths(ICBSNode*  node)
 // check whether the new planed path obeys the constraints -- for debug
 bool ICBSSearch::isPathsConsistentWithConstraints(ICBSNode* curr) const
 {
-	if(curr->partialExpansion)
+	if (curr->partialExpansion)
 		return true;
 	while (curr != NULL)
 	{
@@ -1215,6 +1215,7 @@ inline int ICBSSearch::getAgentLocation(int agent_id, size_t timestep)
 // takes the paths_found_initially and UPDATE all (constrained) paths found for agents from curr to start
 inline void ICBSSearch::updatePaths(ICBSNode* curr)
 {
+    ICBSNode* orig = curr;
 	for (int i = 0; i < num_of_agents; i++)
 		paths[i] = &paths_found_initially[i];
 	vector<bool> updated(num_of_agents, false);  // initialized for false
@@ -1378,17 +1379,17 @@ bool ICBSSearch::runICBSSearch()
 		if (curr->partialExpansion)
 		{
 			bool Sol = findPaths(curr);
-			if(!Sol || reinsert(curr))
+			if (!Sol || reinsert(curr))
 				continue;
 		}
 		if (!HL_heuristic) // No heuristics
 		{
 			curr->conflict = classifyConflicts(*curr); // choose conflict
 			
-			if( screen == 1)
+			if ( screen == 1)
 				printConflicts(*curr);
 		}
-		else if(curr->conflict == NULL) //CBSH, and h value has not been computed yet
+		else if (curr->conflict == NULL) //CBSH, and h value has not been computed yet
 		{					
 			curr->conflict = classifyConflicts(*curr); // classify and choose conflicts
 
@@ -1433,7 +1434,7 @@ bool ICBSSearch::runICBSSearch()
 			std::cout << "Choose conflict " << (*curr->conflict) << std::endl;
 		}
 
-		if(split == split_strategy::DISJOINT3)
+		if (split == split_strategy::DISJOINT3)
 		{
 			ICBSNode* n1 = new ICBSNode(curr);
 			ICBSNode* n2 = new ICBSNode(curr);
@@ -1573,12 +1574,12 @@ ICBSSearch::ICBSSearch(const MapLoader& ml, const AgentsLoader& al, double focal
 	{
 		pair<int, int> start(search_engines[i]->start_location, 0);
 		pair<int, int> goal(search_engines[i]->goal_location, INT_MAX);
-		if(dummy_start->makespan + 1 > cat.size())
+		if (dummy_start->makespan + 1 > cat.size())
 		{
 			cat.resize(dummy_start->makespan + 1);
 			buildConflictAvoidanceTable(cat, i, *dummy_start);
 		}
-		else if(i > 0)
+		else if (i > 0)
 			addPathToConflictAvoidanceTable(cat, i - 1);
 
 		if (search_engines[i]->findShortestPath(paths_found_initially[i], cons_table, cat, start, goal, 0, -1) == false)

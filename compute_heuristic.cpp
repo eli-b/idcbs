@@ -76,7 +76,7 @@ void ComputeHeuristic::getAllPairsHVals(vector<vector<int>>& res)
 	res.resize(map_size);
 	for (int root_location = 0; root_location < map_size; root_location++)
 	{
-		if(my_map[root_location])
+		if (my_map[root_location])
 			continue;
 		res[root_location].resize(map_size, INT_MAX);
 

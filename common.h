@@ -34,7 +34,7 @@ enum split_strategy { NON_DISJOINT, RANDOM, SINGLETONS, WIDTH, DISJOINT3, SPLIT_
 enum lowlevel_hval { DEFAULT, DH, LLH_COUNT };
 
 
-enum conflict_type { CARDINAL, SEMICARDINAL, NONCARDINAL, CONFLICT_COYNT };
+enum conflict_type { CARDINAL, SEMICARDINAL, NONCARDINAL, CONFLICT_COUNT };
 
 using namespace std;
 

@@ -18,7 +18,7 @@ bool MDD::buildMDD(const std::vector < std::unordered_map<int, ConstraintState >
 
 		if (node->level == numOfLevels - 1)
 		{
-			if(node->location != goal.first)
+			if (node->location != goal.first)
 				continue;
 			levels[numOfLevels - 1].push_back(node);
 			break;
@@ -137,7 +137,7 @@ void MDD::deleteNode(MDDNode* node)
 	for (list<MDDNode*>::iterator child = node->children.begin(); child != node->children.end(); ++child)
 	{
 		(*child)->parents.remove(node);
-		if((*child)->parents.empty())
+		if ((*child)->parents.empty())
 			deleteNode(*child);
 	}
 	for (list<MDDNode*>::iterator parent = node->parents.begin(); parent != node->parents.end(); ++parent)
@@ -150,7 +150,7 @@ void MDD::deleteNode(MDDNode* node)
 
 void MDD::clear()
 {
-	if(levels.empty())
+	if (levels.empty())
 		return;
 	for (int i = 0; i < levels.size(); i++)
 	{
@@ -161,9 +161,9 @@ void MDD::clear()
 
 MDDNode* MDD::find(int location, int level) 
 {
-	if(level < levels.size())
+	if (level < levels.size())
 		for (list<MDDNode*>::iterator it = levels[level].begin(); it != levels[level].end(); ++it)
-			if((*it)->location == location)
+			if ((*it)->location == location)
 				return (*it);
 	return NULL;
 }

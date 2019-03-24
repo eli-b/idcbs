@@ -6,7 +6,7 @@ void SingleAgentICBS::updatePath(const LLNode* goal, vector<PathEntry> &path)
 {
 	const LLNode* curr = goal;
 	int old_length = (int)path.size();
-	if(goal->timestep >= old_length)
+	if (goal->timestep >= old_length)
 		path.resize(goal->timestep + 1);
 	for(int t = goal->timestep;curr != NULL; t--)
 	{
@@ -40,7 +40,7 @@ int SingleAgentICBS::getDifferentialHeuristic(int loc1, int loc2) const
 	for (int i = 0; i < differential_h.size(); i++)
 	{
 		sub = abs(differential_h[i]->at(loc1) - differential_h[i]->at(loc2));
-		if(sub > h)
+		if (sub > h)
 			h = sub;
 	}
 	return h;
@@ -67,7 +67,7 @@ int SingleAgentICBS::extractLastGoalTimestep(int goal_location, const vector< li
 }
 
 
-// Checks if a vaild path found (wrt my_map and constraints)
+// Checks if a valid path found (wrt my_map and constraints)
 // input: curr_id (location at time next_timestep-1) ; next_id (location at time next_timestep); next_timestep
 // cons[timestep] is a list of <loc1,loc2, bool> of (vertex/edge) constraints for that timestep. (loc2=-1 for vertex constraint).
 bool SingleAgentICBS::isConstrained(int direction, int next_id, int next_timestep,
@@ -75,12 +75,12 @@ bool SingleAgentICBS::isConstrained(int direction, int next_id, int next_timeste
 {
 	if (my_map[next_id]) // obstacles
 		return true;
-	else if(next_timestep >= cons_table.size())
+	else if (next_timestep >= cons_table.size())
 		return false;
 	auto it = cons_table[next_timestep].find(next_id);
 	if (it == cons_table[next_timestep].end())
 		return false;
-	else if(it->second.vertex || it->second.edge[direction])
+	else if (it->second.vertex || it->second.edge[direction])
 		return true;
 	else 
 		return false;
@@ -105,7 +105,7 @@ int SingleAgentICBS::numOfConflictsForStep(int curr_id, int next_id, int next_ti
 		auto it = cat[next_timestep].find(next_id);
 		if (it != cat[next_timestep].end())
 		{
-			if(it->second.vertex)
+			if (it->second.vertex)
 				retVal++;
 			// check edge constraints (the move from curr_id to next_id at next_timestep-1 is disallowed)
 			for (int i = 0; i < MapLoader::WAIT_MOVE; i++) // i=0 is the wait action that cannot lead to edge conflict
@@ -171,11 +171,11 @@ bool SingleAgentICBS::findPath(vector<PathEntry> &path,
 				// compute cost to next_id via curr node
 				int next_g_val = curr->g_val + 1;
 				int next_h_val;
-				if(h_type == lowlevel_hval::DEFAULT)
+				if (h_type == lowlevel_hval::DEFAULT)
 					next_h_val = abs(my_heuristic[goal.first] - my_heuristic[next_id]);
 				else //h_type == lowlevel_hval::DH
 					next_h_val = getDifferentialHeuristic(next_id, goal.first);
-				if(next_timestep + next_h_val > goal.second) // the node cannot reach the goal node at time goal.second
+				if (next_timestep + next_h_val > goal.second) // the node cannot reach the goal node at time goal.second
 					continue;
 				int next_internal_conflicts = curr->num_internal_conf +
 					numOfConflictsForStep(curr->loc, next_id, next_timestep, cat);
@@ -213,11 +213,11 @@ bool SingleAgentICBS::findPath(vector<PathEntry> &path,
 }
 
 
-// find the shortest path from lcoation start.first at timestep start.second to location goal.first
+// find the shortest path from location start.first at timestep start.second to location goal.first
 // (no earlier than timestep max{earliestGoalTimestep, lastGoalConsTime + 1} and no later than timestep goal.second)
 // that satisfies all constraints in cons_table
 // while minimizing conflicts with paths in cat
-// return true if a path found (and updates path) or false if no path exists
+// return true if a path was found (and updates path) or false if no path exists
 bool SingleAgentICBS::findShortestPath(vector<PathEntry> &path,
 	const std::vector < std::unordered_map<int, ConstraintState > >& cons_table,
 	const std::vector < std::unordered_map<int, ConstraintState > >& cat,
@@ -255,7 +255,7 @@ bool SingleAgentICBS::findShortestPath(vector<PathEntry> &path,
 			allNodes_table.clear();
 			return true;
 		}
-		else if(curr->timestep > goal.second) // did not reach the goal lcoation before the required timestep
+		else if (curr->timestep > goal.second) // did not reach the goal lcoation before the required timestep
 			continue;
 		num_expanded++;
 		for (int i = 0; i < 5; i++)
