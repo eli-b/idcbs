@@ -13,7 +13,7 @@ public:
 	ICBSNode* parent;
 	std::shared_ptr<Conflict> conflict; // the chosen conflict
 	int agent_id; // the agent that constraints are imposed on
-	list<Constraint> constraint; 
+	list<Constraint> constraints;
 	list<pair<int, vector<PathEntry>>> new_paths; // (agent id + its new path)
 
 	int g_val;
