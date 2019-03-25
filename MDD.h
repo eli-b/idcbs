@@ -1,5 +1,5 @@
 #pragma once
-#include "SingleAgentICBS.h"
+#include "ICBSSingleAgentLLSearch.h"
 
 class MDDNode
 {
@@ -38,7 +38,7 @@ public:
 
 	int numPointers; //used to count how many pointers pointed to this
 	bool buildMDD(const std::vector < std::unordered_map<int, ConstraintState > >& cons_table,
-		const pair<int, int> &start, const pair<int, int>&goal, int lookahead, const SingleAgentICBS & solver);
+		const pair<int, int> &start, const pair<int, int>&goal, int lookahead, const ICBSSingleAgentLLSearch & solver);
 	bool updateMDD(const tuple<int, int, int> &constraint, int num_col);
 	MDDNode* find(int location, int level);
 	void deleteNode(MDDNode* node);

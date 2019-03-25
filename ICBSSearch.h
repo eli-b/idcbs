@@ -2,10 +2,9 @@
 #pragma once
 
 #include "ICBSNode.h"
-#include "SingleAgentICBS.h"
+#include "ICBSSingleAgentLLSearch.h"
 #include "compute_heuristic.h"
 #include "agents_loader.h"
-
 
 class ICBSSearch
 {
@@ -63,7 +62,7 @@ private:
 
 
 	ICBSNode* dummy_start;
-	vector < SingleAgentICBS* > search_engines;  // used to find (single) agents' paths and mdd
+	vector < ICBSSingleAgentLLSearch* > search_engines;  // used to find (single) agents' paths and mdd
 	vector<vector<PathEntry>*> paths;
 	vector<vector<PathEntry>> paths_found_initially;  // contain initial paths found
 

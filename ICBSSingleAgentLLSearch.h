@@ -2,7 +2,7 @@
 #include "LLNode.h"
 #include "map_loader.h"
 
-class SingleAgentICBS
+class ICBSSingleAgentLLSearch
 {
 public:
 	// define typedefs (will also be used in ecbs_search)
@@ -56,8 +56,8 @@ public:
 	inline void releaseClosedListNodes(hashtable_t& allNodes_table);
 
 
-	SingleAgentICBS(int start_location, int goal_location, const bool* my_map, int map_row, int num_col, const int* moves_offset);
-	~SingleAgentICBS();
+	ICBSSingleAgentLLSearch(int start_location, int goal_location, const bool* my_map, int map_row, int num_col, const int* moves_offset);
+	~ICBSSingleAgentLLSearch();
 
 };
 

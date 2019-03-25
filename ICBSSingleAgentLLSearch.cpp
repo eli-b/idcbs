@@ -1,8 +1,8 @@
-#include "SingleAgentICBS.h"
+#include "ICBSSingleAgentLLSearch.h"
 
 
 // Updates the path.
-void SingleAgentICBS::updatePath(const LLNode* goal, vector<PathEntry> &path)
+void ICBSSingleAgentLLSearch::updatePath(const LLNode* goal, vector<PathEntry> &path)
 {
 	const LLNode* curr = goal;
 	int old_length = (int)path.size();
@@ -32,7 +32,7 @@ void SingleAgentICBS::updatePath(const LLNode* goal, vector<PathEntry> &path)
 	}
 }
 
-int SingleAgentICBS::getDifferentialHeuristic(int loc1, int loc2) const
+int ICBSSingleAgentLLSearch::getDifferentialHeuristic(int loc1, int loc2) const
 {
 	if (loc2 == goal_location)
 		return my_heuristic[loc1];
@@ -49,7 +49,7 @@ int SingleAgentICBS::getDifferentialHeuristic(int loc1, int loc2) const
 // iterate over the constraints ( cons[t] is a list of all constraints for timestep t) and return the latest
 // timestep which has a constraint involving the goal location
 // which is the minimal plan length for the agent
-int SingleAgentICBS::extractLastGoalTimestep(int goal_location, const vector< list< tuple<int, int, bool> > >* cons) 
+int ICBSSingleAgentLLSearch::extractLastGoalTimestep(int goal_location, const vector< list< tuple<int, int, bool> > >* cons)
 {
 	if (cons != NULL) 
 	{
@@ -70,7 +70,7 @@ int SingleAgentICBS::extractLastGoalTimestep(int goal_location, const vector< li
 // Checks if a valid path found (wrt my_map and constraints)
 // input: curr_id (location at time next_timestep-1) ; next_id (location at time next_timestep); next_timestep
 // cons[timestep] is a list of <loc1,loc2, bool> of (vertex/edge) constraints for that timestep. (loc2=-1 for vertex constraint).
-bool SingleAgentICBS::isConstrained(int direction, int next_id, int next_timestep,
+bool ICBSSingleAgentLLSearch::isConstrained(int direction, int next_id, int next_timestep,
 	const std::vector < std::unordered_map<int, ConstraintState > >& cons_table)  const 
 {
 	if (my_map[next_id]) // obstacles
@@ -88,7 +88,7 @@ bool SingleAgentICBS::isConstrained(int direction, int next_id, int next_timeste
 
 // Return the number of conflicts between the known_paths' (by looking at the reservation table) for the move [curr_id,next_id].
 // Returns 0 if no conflict, 1 for vertex or edge conflict, 2 for both.
-int SingleAgentICBS::numOfConflictsForStep(int curr_id, int next_id, int next_timestep, const std::vector < std::unordered_map<int, ConstraintState > >& cat )
+int ICBSSingleAgentLLSearch::numOfConflictsForStep(int curr_id, int next_id, int next_timestep, const std::vector < std::unordered_map<int, ConstraintState > >& cat )
 {
 	int retVal = 0;
 	if (next_timestep >= cat.size()) 
@@ -127,7 +127,7 @@ int SingleAgentICBS::numOfConflictsForStep(int curr_id, int next_id, int next_ti
 // Since we don't have to find the SHORTEST path, we only use FOCAL (without OPEN) here and prune all nodes 
 // that cannot reach the goal at the given timestep
 // This is used to re-plan a (sub-)path between two positive constraints.
-bool SingleAgentICBS::findPath(vector<PathEntry> &path, 
+bool ICBSSingleAgentLLSearch::findPath(vector<PathEntry> &path,
 	const std::vector < std::unordered_map<int, ConstraintState > >& cons_table,
 	const std::vector < std::unordered_map<int, ConstraintState > >& cat,
 	const pair<int, int> &start, const pair<int, int>&goal, lowlevel_hval h_type)
@@ -218,8 +218,8 @@ bool SingleAgentICBS::findPath(vector<PathEntry> &path,
 // (no earlier than timestep max{earliestGoalTimestep, lastGoalConsTime + 1} and no later than timestep goal.second)
 // that satisfies all constraints in cons_table
 // while minimizing conflicts with paths in cat
-// return true if a path was found (and updates path) or false if no path exists
-bool SingleAgentICBS::findShortestPath(vector<PathEntry> &path,
+// return true if a path was found (and update path) or false if no path exists
+bool ICBSSingleAgentLLSearch::findShortestPath(vector<PathEntry> &path,
 	const std::vector < std::unordered_map<int, ConstraintState > >& cons_table,
 	const std::vector < std::unordered_map<int, ConstraintState > >& cat,
 	const pair<int, int> &start, const pair<int, int>&goal, int earliestGoalTimestep, int lastGoalConsTime)
@@ -335,7 +335,7 @@ bool SingleAgentICBS::findShortestPath(vector<PathEntry> &path,
 	return false;
 }
 
-inline void SingleAgentICBS::releaseClosedListNodes(hashtable_t& allNodes_table) 
+inline void ICBSSingleAgentLLSearch::releaseClosedListNodes(hashtable_t& allNodes_table)
 {
 	hashtable_t::iterator it;
 	for (auto it: allNodes_table) 
@@ -344,7 +344,7 @@ inline void SingleAgentICBS::releaseClosedListNodes(hashtable_t& allNodes_table)
 	}
 }
 
-SingleAgentICBS::SingleAgentICBS(int start_location, int goal_location,
+ICBSSingleAgentLLSearch::ICBSSingleAgentLLSearch(int start_location, int goal_location,
 	const bool* my_map, int num_row, int num_col, const int* moves_offset):
 		my_map(my_map), moves_offset(moves_offset), start_location(start_location), goal_location(goal_location),
 		num_col(num_col)
@@ -361,7 +361,7 @@ SingleAgentICBS::SingleAgentICBS(int start_location, int goal_location,
 }
 
 
-SingleAgentICBS::~SingleAgentICBS()
+ICBSSingleAgentLLSearch::~ICBSSingleAgentLLSearch()
 {
 	delete (empty_node);
 	delete (deleted_node);

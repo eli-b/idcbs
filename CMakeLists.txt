@@ -27,5 +27,5 @@ add_executable(disjoint_CBSH
         map_loader.h
         MDD.cpp
         MDD.h
-        SingleAgentICBS.cpp
-        SingleAgentICBS.h)
+        ICBSSingleAgentLLSearch.cpp
+        ICBSSingleAgentLLSearch.h)

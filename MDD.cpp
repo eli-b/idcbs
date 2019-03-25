@@ -1,7 +1,7 @@
 #include "MDD.h"
 
 bool MDD::buildMDD(const std::vector < std::unordered_map<int, ConstraintState > >& cons_table,
-	const pair<int, int> &start, const pair<int, int>&goal, int lookahead, const SingleAgentICBS & solver)
+	const pair<int, int> &start, const pair<int, int>&goal, int lookahead, const ICBSSingleAgentLLSearch & solver)
 {
 	int numOfLevels = goal.second - start.second + lookahead + 1;
 	int current_cost = goal.second - start.second;

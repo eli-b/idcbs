@@ -21,9 +21,8 @@
       <change beforePath="$PROJECT_DIR$/ICBSSearch.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/ICBSSearch.cpp" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/MDD.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/MDD.cpp" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/MDD.h" beforeDir="false" afterPath="$PROJECT_DIR$/MDD.h" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/SingleAgentICBS.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/SingleAgentICBS.cpp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/SingleAgentICBS.h" beforeDir="false" afterPath="$PROJECT_DIR$/SingleAgentICBS.h" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/agents_loader.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/agents_loader.cpp" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/SingleAgentICBS.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/ICBSSingleAgentLLSearch.cpp" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/SingleAgentICBS.h" beforeDir="false" afterPath="$PROJECT_DIR$/ICBSSingleAgentLLSearch.h" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/common.h" beforeDir="false" afterPath="$PROJECT_DIR$/common.h" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/compute_heuristic.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/compute_heuristic.cpp" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/driver.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/driver.cpp" afterDir="false" />
