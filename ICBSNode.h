@@ -1,6 +1,11 @@
 #pragma once
 #include "MDD.h"
+#include "lpa_star.h"
 
+#include <list>
+#include <vector>
+
+#define LPA
 
 class ICBSNode
 {
@@ -27,6 +32,8 @@ public:
 
 	uint64_t time_expanded;
 	uint64_t time_generated;
+
+	vector<LPAStar*> lpas;
 
 	// the following is used to comapre nodes in the OPEN list
 	struct compare_node {
@@ -55,8 +62,15 @@ public:
 	open_handle_t open_handle;
 	focal_handle_t focal_handle;
 
+	void add_constraint(const Constraint&);
+
 	void clear();
+
+#ifndef LPA
 	ICBSNode();
+#else
+	ICBSNode(vector<LPAStar*>& lpas);
+#endif
 	ICBSNode(ICBSNode* parent);
 };
 

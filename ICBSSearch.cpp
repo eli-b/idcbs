@@ -629,13 +629,13 @@ void ICBSSearch::branch(ICBSNode* curr, ICBSNode* n1, ICBSNode*n2)
 		n2->agent_id = id;
 		if (location2 >= 0 && id == agent2_id) //edge constraint for the second agent
 		{
-			n1->constraints.push_back(make_tuple(location2, location1, timestep, true));
-			n2->constraints.push_back(make_tuple(location2, location1, timestep, false));
+			n1->add_constraint(make_tuple(location2, location1, timestep, true));
+			n2->add_constraint(make_tuple(location2, location1, timestep, false));
 		}
 		else
 		{
-			n1->constraints.push_back(make_tuple(location1, location2, timestep, true));
-			n2->constraints.push_back(make_tuple(location1, location2, timestep, false));
+			n1->add_constraint(make_tuple(location1, location2, timestep, true));
+			n2->add_constraint(make_tuple(location1, location2, timestep, false));
 		}
 	}
 	else if (split == split_strategy::SINGLETONS)
@@ -679,8 +679,8 @@ void ICBSSearch::branch(ICBSNode* curr, ICBSNode* n1, ICBSNode*n2)
 		n2->agent_id = id;
 		if (location2 < 0) // vertex constraint
 		{
-			n1->constraints.push_back(make_tuple(location1, -1, timestep, true));
-			n2->constraints.push_back(make_tuple(location1, -1, timestep, false));
+			n1->add_constraint(make_tuple(location1, -1, timestep, true));
+			n2->add_constraint(make_tuple(location1, -1, timestep, false));
 			if (propagation && max(num_singleton1, num_singleton2) > 1)
 			{
 				for (int i = timestep; i > 0; i--)
@@ -690,9 +690,9 @@ void ICBSSearch::branch(ICBSNode* curr, ICBSNode* n1, ICBSNode*n2)
 					else if (!paths[id]->at(i).single)
 						continue;
 					else if (paths[id]->at(i - 1).buildMDD && paths[id]->at(i - 1).single)
-						n1->constraints.push_back(make_tuple(paths[id]->at(i - 1).location, paths[id]->at(i).location, i, true));
+						n1->add_constraint(make_tuple(paths[id]->at(i - 1).location, paths[id]->at(i).location, i, true));
 					else if (i < timestep && !paths[id]->at(i + 1).single)
-						n1->constraints.push_back(make_tuple(paths[id]->at(i).location, -1, i, true));
+						n1->add_constraint(make_tuple(paths[id]->at(i).location, -1, i, true));
 				}
 			}
 		}
@@ -700,13 +700,13 @@ void ICBSSearch::branch(ICBSNode* curr, ICBSNode* n1, ICBSNode*n2)
 		{
 			if (id == agent1_id) // for first agent
 			{
-				n1->constraints.push_back(make_tuple(location1, location2, timestep, true));
-				n2->constraints.push_back(make_tuple(location1, location2, timestep, false));
+				n1->add_constraint(make_tuple(location1, location2, timestep, true));
+				n2->add_constraint(make_tuple(location1, location2, timestep, false));
 			}
 			else // for second agent
 			{
-				n1->constraints.push_back(make_tuple(location2, location1, timestep, true));
-				n2->constraints.push_back(make_tuple(location2, location1, timestep, false));
+				n1->add_constraint(make_tuple(location2, location1, timestep, true));
+				n2->add_constraint(make_tuple(location2, location1, timestep, false));
 			}
 			if (propagation && timestep - 1 > 1 && max(num_singleton1, num_singleton2) > 1)
 			{
@@ -717,9 +717,9 @@ void ICBSSearch::branch(ICBSNode* curr, ICBSNode* n1, ICBSNode*n2)
 					else if (!paths[id]->at(i).single)
 						continue;
 					else if (paths[id]->at(i - 1).buildMDD && paths[id]->at(i - 1).single)
-						n1->constraints.push_back(make_tuple(paths[id]->at(i - 1).location, paths[id]->at(i).location, i, true));
+						n1->add_constraint(make_tuple(paths[id]->at(i - 1).location, paths[id]->at(i).location, i, true));
 					else if (i < timestep - 1 && !paths[id]->at(i + 1).single)
-						n1->constraints.push_back(make_tuple(paths[id]->at(i).location, -1, i, true));
+						n1->add_constraint(make_tuple(paths[id]->at(i).location, -1, i, true));
 				}
 			}
 		}
@@ -739,8 +739,8 @@ void ICBSSearch::branch(ICBSNode* curr, ICBSNode* n1, ICBSNode*n2)
 		n2->agent_id = id;
 		if (location2 < 0) // vertex conflict
 		{
-			n1->constraints.push_back(make_tuple(location1, location2, timestep, true));
-			n2->constraints.push_back(make_tuple(location1, location2, timestep, false));
+			n1->add_constraint(make_tuple(location1, location2, timestep, true));
+			n2->add_constraint(make_tuple(location1, location2, timestep, false));
 			if (propagation && timestep < paths[id]->size())
 			{
 				for (int i = timestep; i > 0; i--)
@@ -750,9 +750,9 @@ void ICBSSearch::branch(ICBSNode* curr, ICBSNode* n1, ICBSNode*n2)
 					else if (!paths[id]->at(i).single)
 						continue;
 					else if (paths[id]->at(i - 1).buildMDD && paths[id]->at(i - 1).single)
-						n1->constraints.push_back(make_tuple(paths[id]->at(i - 1).location, paths[id]->at(i).location, i, true));
+						n1->add_constraint(make_tuple(paths[id]->at(i - 1).location, paths[id]->at(i).location, i, true));
 					else if (i < timestep && !paths[id]->at(i + 1).single)
-						n1->constraints.push_back(make_tuple(paths[id]->at(i).location, -1, i, true));
+						n1->add_constraint(make_tuple(paths[id]->at(i).location, -1, i, true));
 				}
 			}
 		}
@@ -760,13 +760,13 @@ void ICBSSearch::branch(ICBSNode* curr, ICBSNode* n1, ICBSNode*n2)
 		{
 			if (id == agent1_id) // for first agent
 			{
-				n1->constraints.push_back(make_tuple(location1, location2, timestep, true));
-				n2->constraints.push_back(make_tuple(location1, location2, timestep, false));
+				n1->add_constraint(make_tuple(location1, location2, timestep, true));
+				n2->add_constraint(make_tuple(location1, location2, timestep, false));
 			}
 			else // for second agent
 			{
-				n1->constraints.push_back(make_tuple(location2, location1, timestep, true));
-				n2->constraints.push_back(make_tuple(location2, location1, timestep, false));
+				n1->add_constraint(make_tuple(location2, location1, timestep, true));
+				n2->add_constraint(make_tuple(location2, location1, timestep, false));
 			}
 			if (propagation && timestep > 1 && timestep < paths[id]->size())
 			{
@@ -777,9 +777,9 @@ void ICBSSearch::branch(ICBSNode* curr, ICBSNode* n1, ICBSNode*n2)
 					else if (!paths[id]->at(i).single)
 						continue;
 					else if (paths[id]->at(i - 1).buildMDD && paths[id]->at(i - 1).single)
-						n1->constraints.push_back(make_tuple(paths[id]->at(i - 1).location, paths[id]->at(i).location, i, true));
+						n1->add_constraint(make_tuple(paths[id]->at(i - 1).location, paths[id]->at(i).location, i, true));
 					else if (i < timestep - 1 && !paths[id]->at(i + 1).single)
-						n1->constraints.push_back(make_tuple(paths[id]->at(i).location, -1, i, true));
+						n1->add_constraint(make_tuple(paths[id]->at(i).location, -1, i, true));
 				}
 			}
 		}
@@ -790,13 +790,13 @@ void ICBSSearch::branch(ICBSNode* curr, ICBSNode* n1, ICBSNode*n2)
 		n2->agent_id = get<1>(*curr->conflict);
 		if (get<3>(*curr->conflict) < 0) // vertex conflict
 		{
-			n1->constraints.push_back(make_tuple(get<2>(*curr->conflict), -1, get<4>(*curr->conflict), false));
-			n2->constraints.push_back(make_tuple(get<2>(*curr->conflict), -1, get<4>(*curr->conflict), false));
+			n1->add_constraint(make_tuple(get<2>(*curr->conflict), -1, get<4>(*curr->conflict), false));
+			n2->add_constraint(make_tuple(get<2>(*curr->conflict), -1, get<4>(*curr->conflict), false));
 		}
 		else // edge conflict
 		{
-			n1->constraints.push_back(make_tuple(get<2>(*curr->conflict), get<3>(*curr->conflict), get<4>(*curr->conflict), false));
-			n2->constraints.push_back(make_tuple(get<3>(*curr->conflict), get<2>(*curr->conflict), get<4>(*curr->conflict), false));
+			n1->add_constraint(make_tuple(get<2>(*curr->conflict), get<3>(*curr->conflict), get<4>(*curr->conflict), false));
+			n2->add_constraint(make_tuple(get<3>(*curr->conflict), get<2>(*curr->conflict), get<4>(*curr->conflict), false));
 		}
 
 	}
@@ -978,11 +978,33 @@ bool ICBSSearch::findPathForSingleAgent(ICBSNode* node, int ag, int timestep, in
 
 	if (goal.second  >= paths[ag]->size())
 	{
+#ifndef LPA
 		foundSol = search_engines[ag]->findShortestPath(newPath.second, cons_table, cat, start, goal, lowerbound, lastGoalConTimestep);
+#else
+		if (start.second == 0 && goal.second == INT_MAX) {
+			foundSol = node->lpas[ag]->findPath();
+			const vector<int> *primitive_path = node->lpas[ag]->getPath(node->lpas[ag]->paths.size() - 1);
+			newPath.second.resize(primitive_path->size());
+			for (int j = 0; j < primitive_path->size(); ++j) {
+				newPath.second[j].location = (*primitive_path)[j];
+				newPath.second[j].buildMDD = false;
+			}
+			newPath.second[0].buildMDD = true;
+			newPath.second[0].single = true;
+			newPath.second[0].numMDDNodes = 1;
+			newPath.second[primitive_path->size() - 1].buildMDD = true;
+			newPath.second[primitive_path->size() - 1].single = true;
+			newPath.second[primitive_path->size() - 1].numMDDNodes = 1;
+		}
+		else
+		{
+			foundSol = search_engines[ag]->findShortestPath(newPath.second, cons_table, cat, start, goal, lowerbound, lastGoalConTimestep);
+		}
+#endif
 	}
 	else
 	{
-		foundSol = search_engines[ag]->findPath(newPath.second, cons_table, cat, start, goal, lowlevel_hval::DH);		
+		foundSol = search_engines[ag]->findPath(newPath.second, cons_table, cat, start, goal, lowlevel_hval::DH);
 	}
 
 	LL_num_expanded += search_engines[ag]->num_expanded;
@@ -1446,15 +1468,15 @@ bool ICBSSearch::runICBSSearch()
 			n3->agent_id = (1 + get<0>(*curr->conflict)) * num_of_agents + get<1>(*curr->conflict);
 			if (get<3>(*curr->conflict) < 0) // vertex conflict
 			{
-				n1->constraints.push_back(make_tuple(get<2>(*curr->conflict), -1, get<4>(*curr->conflict), true));
-				n2->constraints.push_back(make_tuple(get<2>(*curr->conflict), -1, get<4>(*curr->conflict), true));
-				n3->constraints.push_back(make_tuple(get<2>(*curr->conflict), -1, get<4>(*curr->conflict), false));
+				n1->add_constraint(make_tuple(get<2>(*curr->conflict), -1, get<4>(*curr->conflict), true));
+				n2->add_constraint(make_tuple(get<2>(*curr->conflict), -1, get<4>(*curr->conflict), true));
+				n3->add_constraint(make_tuple(get<2>(*curr->conflict), -1, get<4>(*curr->conflict), false));
 			}
 			else // edge conflict
 			{
-				n1->constraints.push_back(make_tuple(get<2>(*curr->conflict), get<3>(*curr->conflict), get<4>(*curr->conflict), true));
-				n2->constraints.push_back(make_tuple(get<3>(*curr->conflict), get<2>(*curr->conflict), get<4>(*curr->conflict), true));
-				n3->constraints.push_back(make_tuple(get<2>(*curr->conflict), get<3>(*curr->conflict), get<4>(*curr->conflict), false));
+				n1->add_constraint(make_tuple(get<2>(*curr->conflict), get<3>(*curr->conflict), get<4>(*curr->conflict), true));
+				n2->add_constraint(make_tuple(get<3>(*curr->conflict), get<2>(*curr->conflict), get<4>(*curr->conflict), true));
+				n3->add_constraint(make_tuple(get<2>(*curr->conflict), get<3>(*curr->conflict), get<4>(*curr->conflict), false));
 			}
 			bool Sol1 = false, Sol2 = false, Sol3 = false;
 			vector<vector<PathEntry>*> copy(paths);
@@ -1541,9 +1563,14 @@ ICBSSearch::ICBSSearch(const MapLoader& ml, const AgentsLoader& al, double focal
 	time_limit = cutoffTime;
 	this->num_col = ml.cols;
 	num_of_agents = al.num_of_agents;
-	map_size = ml.rows*ml.cols;
+	map_size = ml.rows * ml.cols;
 	moves_offset = ml.moves_offset;
-	search_engines = vector < SingleAgentICBS* >(num_of_agents);
+	search_engines = vector < ICBSSingleAgentLLSearch* >(num_of_agents);
+
+#ifndef LPA
+#else
+	vector<LPAStar*> lpas(num_of_agents);
+#endif
 
 	// initialize single agent search solver and heuristics for the low-level search
 	for (int i = 0; i < num_of_agents; i++) 
@@ -1551,10 +1578,19 @@ ICBSSearch::ICBSSearch(const MapLoader& ml, const AgentsLoader& al, double focal
 		int init_loc = ml.linearize_coordinate((al.initial_locations[i]).first, (al.initial_locations[i]).second);
 		int goal_loc = ml.linearize_coordinate((al.goal_locations[i]).first, (al.goal_locations[i]).second);
 		ComputeHeuristic ch(init_loc, goal_loc, ml.my_map, ml.rows, ml.cols, ml.moves_offset);
-		search_engines[i] = new SingleAgentICBS(init_loc, goal_loc, ml.my_map, ml.rows, ml.cols, ml.moves_offset);
+		search_engines[i] = new ICBSSingleAgentLLSearch(init_loc, goal_loc, ml.my_map, ml.rows, ml.cols, ml.moves_offset);
 		ch.getHVals(search_engines[i]->my_heuristic);
+#ifndef LPA
+#else
+		float* my_heuristic = new float[search_engines[i]->my_heuristic.size()];
+		for (int j = 0; j < search_engines[i]->my_heuristic.size(); ++j) {
+			my_heuristic[j] = search_engines[i]->my_heuristic[j];
+		}
+		lpas[i] = new LPAStar(init_loc, goal_loc, my_heuristic, &ml);
+#endif
 	}
-	if (split != split_strategy::NON_DISJOINT) // Disjoint splitting uses differential heuristics for the low-level search
+	if (split != split_strategy::NON_DISJOINT) // Disjoint splitting uses differential heuristics (Manhattan Distance)
+											   // for the low-level search in addition to the perfect heuristic
 	{
 		for (int i = 0; i < num_of_agents; i++)
 		{
@@ -1565,7 +1601,11 @@ ICBSSearch::ICBSSearch(const MapLoader& ml, const AgentsLoader& al, double focal
 	}
 	
 	// initialize paths_found_initially
+#ifndef LPA
 	dummy_start = new ICBSNode();
+#else
+	dummy_start = new ICBSNode(lpas);
+#endif
 	paths.resize(num_of_agents, NULL);
 	paths_found_initially.resize(num_of_agents);
 	std::vector < std::unordered_map<int, ConstraintState > > cons_table;
@@ -1582,13 +1622,32 @@ ICBSSearch::ICBSSearch(const MapLoader& ml, const AgentsLoader& al, double focal
 		else if (i > 0)
 			addPathToConflictAvoidanceTable(cat, i - 1);
 
+#ifndef LPA
 		if (search_engines[i]->findShortestPath(paths_found_initially[i], cons_table, cat, start, goal, 0, -1) == false)
+#else
+		// FIXME: currently ignoring the CAT
+		if (dummy_start->lpas[i]->findPath() == false)
+#endif
 		{
 			cout << "NO SOLUTION EXISTS FOR AGENT " << i;
 			delete dummy_start;
 			exit(-1);
 		}
-
+#ifndef LPA
+#else
+		const vector<int>* primitive_path = dummy_start->lpas[i]->getPath(1);  // 1 - first iteration path (0 is an empty path)
+		paths_found_initially[i].resize(primitive_path->size());
+		for (int j = 0; j < primitive_path->size(); ++j) {
+			paths_found_initially[i][j].location = (*primitive_path)[j];
+			paths_found_initially[i][j].buildMDD = false;
+		}
+		paths_found_initially[i][0].buildMDD = true;
+		paths_found_initially[i][0].single = true;
+		paths_found_initially[i][0].numMDDNodes = 1;
+		paths_found_initially[i][primitive_path->size()-1].buildMDD = true;
+		paths_found_initially[i][primitive_path->size()-1].single = true;
+		paths_found_initially[i][primitive_path->size()-1].numMDDNodes = 1;
+#endif
 		paths[i] = &paths_found_initially[i];
 		dummy_start->makespan = max(dummy_start->makespan, (int)paths_found_initially[i].size() - 1);
 		LL_num_expanded += search_engines[i]->num_expanded;
@@ -1621,6 +1680,8 @@ ICBSSearch::~ICBSSearch()
 	for (size_t i = 0; i < search_engines.size(); i++)
 		delete (search_engines[i]);
 
-	for (list<ICBSNode*>::iterator it = allNodes_table.begin(); it != allNodes_table.end(); it++)
+	for (list<ICBSNode*>::iterator it = allNodes_table.begin(); it != allNodes_table.end(); it++) {
+		// TODO: free all the lpastar instances from all the nodes, but carefully, since they're shared
 		delete *it;
+	}
 }

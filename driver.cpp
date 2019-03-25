@@ -2,8 +2,9 @@
 #include "agents_loader.h"
 #include "ICBSSearch.h"
 
-#include "boost/program_options.hpp"
+#include <boost/program_options.hpp>
 #include <boost/property_tree/ptree.hpp>
+#include "g_logging.h"
 
 namespace pt = boost::property_tree;
 using namespace std;
@@ -76,7 +77,7 @@ int main(int argc, char** argv)
 	// validate the solution
 	icbs.isFeasible();
 	// save data
-	icbs.saveResults(vm["output"].as<string>(), vm["agents"].as<string>(), vm["split"].as<string>());
+	icbs.saveResults(vm["output"].as<string>(), vm["agents"].as<string>(), vm["split"].as<string>()+"/LPA*");
 
 
 	return 0;
