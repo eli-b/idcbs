@@ -151,7 +151,7 @@ inline std::pair<bool, LPANode*> LPAStar::retrieveNode(int loc_id, int t) {  // 
 // ----------------------------------------------------------------------------
 
 
-// Adds a node (that was already initalized via retrieveNode) to OPEN
+// Adds a node (that was already initialized via retrieveNode) to OPEN
 // ----------------------------------------------------------------------------
 inline void LPAStar::openlistAdd(LPANode* n) {
   n->openlist_handle_ = open_list.push(n);
@@ -223,8 +223,8 @@ inline LPANode* LPAStar::retrieveMinPred(LPANode* n) {
       }
     }
   }
-  VLOG_IF(11, retVal == nullptr) << "\t\t\t\tretreiveMinPred: min is ****NULL**** BAD!!";
-  VLOG_IF(11, retVal != nullptr) << "\t\t\t\tretreiveMinPred: min is " << retVal->nodeString();
+  VLOG_IF(11, retVal == nullptr) << "\t\t\t\tretrieveMinPred: min is ****NULL**** BAD!!";
+  VLOG_IF(11, retVal != nullptr) << "\t\t\t\tretrieveMinPred: min is " << retVal->nodeString();
   return retVal;
 }
 // ----------------------------------------------------------------------------
@@ -310,7 +310,7 @@ bool LPAStar::findPath() {
       }
     }
   }
-  if (goal_n->g_ < std::numeric_limits<float>::max()) {  // If a solution found.
+  if (goal_n->g_ < std::numeric_limits<float>::max()) {  // If a solution was found.
     updatePath(goal_n);
     return true;
   }

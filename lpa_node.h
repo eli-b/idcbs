@@ -35,7 +35,7 @@ class LPANode {
   //         Hence, to achieve min-Heap, we return true if lhs>rhs
   ///////////////////////////////////////////////////////////////////////////////
   
-  // the following is used to comapre nodes in (Incremental Search) OPEN list
+  // the following is used to compare nodes in (Incremental Search) OPEN list
   struct compare_node {
     // returns true if n1 > n2
     bool operator()(const LPANode* n1, const LPANode* n2) const {
@@ -46,7 +46,7 @@ class LPANode {
   };
 
 
-  // the following is used to comapre nodes in the FOCAL list
+  // the following is used to compare nodes in the FOCAL list
   struct secondary_compare_node {
     // returns true if n1 > n2
     bool operator()(const LPANode* n1, const LPANode* n2) const {

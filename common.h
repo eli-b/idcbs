@@ -39,7 +39,7 @@ enum conflict_type { CARDINAL, SEMICARDINAL, NONCARDINAL, CONFLICT_COUNT };
 using namespace std;
 
 // <int loc1, int loc2, int timestep, bool positive_constraint>
-// NOTE loc2 = -1 for vertex constraints; loc2 = loation2 for edge constraints
+// NOTE loc2 = -1 for vertex constraints; loc2 = location2 for edge constraints
 typedef std::tuple<int, int, int, bool> Constraint;
 std::ostream& operator<<(std::ostream& os, const Constraint& constraint);
 
