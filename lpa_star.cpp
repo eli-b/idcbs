@@ -24,7 +24,8 @@ LPAStar::LPAStar(int start_location, int goal_location, const float* my_heuristi
   my_heuristic(my_heuristic), my_map(ml->my_map), actions_offset(ml->moves_offset) {
   this->start_location = start_location;
   this->goal_location = goal_location;
-  this->map_size = map_size;
+  this->map_rows = ml->rows;
+  this->map_cols = ml->cols;
   this->search_iterations = 0;
   this->num_expanded.push_back(0);
   this->paths.push_back(vector<int>());
@@ -98,7 +99,8 @@ void LPAStar::addVertexConstraint(int loc_id, int ts) {
   }
   for (int direction = 0; direction < 5; direction++) {
     auto succ_loc_id = loc_id + actions_offset[direction];
-    if (!my_map[succ_loc_id]) {
+    if (0 <= succ_loc_id && succ_loc_id < map_rows*map_cols && !my_map[succ_loc_id] &&
+        abs(succ_loc_id % map_cols - loc_id % map_cols) < 2) {
       addEdgeConstraint(loc_id, succ_loc_id, ts+1);
       addEdgeConstraint(succ_loc_id, loc_id, ts);
     }
@@ -215,7 +217,9 @@ inline LPANode* LPAStar::retrieveMinPred(LPANode* n) {
   auto best_vplusc_val = std::numeric_limits<float>::max();
   for (int direction = 0; direction < 5; direction++) {
     auto pred_loc_id = n->loc_id_ - actions_offset[direction];
-    if (!my_map[pred_loc_id] && !dcm.isDynCons(pred_loc_id,n->loc_id_,n->t_)) {
+    if (0 <= pred_loc_id && pred_loc_id < map_rows*map_cols && !my_map[pred_loc_id] &&
+        abs(pred_loc_id % map_cols - n->loc_id_ % map_cols) < 2 &&
+        !dcm.isDynCons(pred_loc_id,n->loc_id_,n->t_)) {
       auto pred_n = retrieveNode(pred_loc_id, n->t_-1).second; // n->t_ - 1 is pred_timestep
       if (pred_n->v_ + 1 <= best_vplusc_val) {  // Assumes unit edge costs.
         best_vplusc_val = pred_n->v_ + 1;  // Assumes unit edge costs.
@@ -290,7 +294,8 @@ bool LPAStar::findPath() {
       curr->v_ = curr->g_;
       for (int direction = 0; direction < 5; direction++) {
         auto next_loc_id = curr->loc_id_ + actions_offset[direction];
-        if (!my_map[next_loc_id]/* &&
+        if (0 <= next_loc_id && next_loc_id < map_rows*map_cols && !my_map[next_loc_id] &&
+            abs(next_loc_id % map_cols - curr->loc_id_ % map_cols) < 2 /* &&
             !dcm.isDynCons(curr->loc_id_, next_loc_id, curr->t_+1)*/) {
           auto next_n = retrieveNode(next_loc_id, curr->t_+1);
           updateState(next_n.second, true);
@@ -302,7 +307,8 @@ bool LPAStar::findPath() {
       updateState(curr);  // should we remove it if it is an illegal move?
       for (int direction = 0; direction < 5; direction++) {
         auto next_loc_id = curr->loc_id_ + actions_offset[direction];
-        if (!my_map[next_loc_id]/* &&
+        if (0 <= next_loc_id && next_loc_id < map_rows*map_cols && !my_map[next_loc_id] &&
+            abs(next_loc_id % map_cols - curr->loc_id_ % map_cols) < 2 /* &&
             !dcm.isDynConst(curr->loc_id_, next_loc_id, curr->t_+1)*/) {
           auto next_n = retrieveNode(next_loc_id, curr->t_+1);
           updateState(next_n.second, false);
@@ -341,7 +347,8 @@ start_location(other.start_location),
 goal_location(other.goal_location),
 my_heuristic(other.my_heuristic),
 my_map(other.my_map),
-map_size(other.map_size),
+map_rows(other.map_rows),
+map_cols(other.map_cols),
 actions_offset(other.actions_offset),
 dcm(other.dcm)
 {

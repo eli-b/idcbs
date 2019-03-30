@@ -42,7 +42,8 @@ class LPAStar {
   int goal_location;
   const float* my_heuristic;  // this is the precomputed heuristic for this agent
   const bool* my_map;  // (not all saved for efficiency)
-  int map_size;
+  int map_rows;
+  int map_cols;
   const int* actions_offset;
   vector<uint64_t> num_expanded;  // each search iteration has num_expanded nodes (all kept for statistics)
   vector< vector<int> > expandedHeatMap;  // (all kept for statistics)
