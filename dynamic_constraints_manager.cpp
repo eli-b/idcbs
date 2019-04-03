@@ -52,20 +52,6 @@ void DynamicConstraintsManager::addDynConstraint(int from_id, int to_id, int ts)
 
 bool DynamicConstraintsManager::isDynCons(int curr_id, int next_id, int next_ts) {
 	VLOG(11) << "\t\t\tisDynConstrained: <from=" << curr_id << ", to=" << next_id << ", t=" << next_ts << ">";
-	/* Old: we transform all vertex constraints to edge constraints.
-	// Check for vertex constraint (being in next_id at next_timestep is disallowed).
-	if ( next_ts < static_cast<int>(dyn_constraints_.size()) ) {
-		for (auto c : dyn_constraints_[next_ts]) {
-			if ( c.second == -1 ) {
-				if ( c.first == next_id ) {
-					VLOG(11) << "\t\t\t\tYES DYN_CONS!";
-					return true;
-				}
-			}
-		}
-	}
-	*/
-
   // Check edge constraints (move from curr_id to next_id (getting to next_id at next_ts) is disallowed).
 	if ( next_ts > 0 && next_ts < static_cast<int>(dyn_constraints_.size()) ) {
 		for (auto c : dyn_constraints_[next_ts]) {

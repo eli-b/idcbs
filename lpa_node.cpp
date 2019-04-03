@@ -30,10 +30,6 @@ LPANode::LPANode(const LPANode& other) {
 }
 
 
-//LPANode::LPANode(const LPANode* other) {
-//  std::cout << "Pointer copy";
-//}
-
 LPANode::~LPANode() {
 }
 
@@ -41,7 +37,3 @@ std::ostream& operator<<(std::ostream& os, const LPANode& n) {
   os << n.nodeString();
   return os;
 }
-/*std::ostream& operator<<(std::ostream& os, const LPANode* n) {
-  os << "ID=" << n->id << " ; TIMESTEP=" << n->timestep << " ; GVAL=" << n->g_val << " ; PARENT=" << (n->parent)->id;
-  return os;
-  }*/

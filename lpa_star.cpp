@@ -165,7 +165,6 @@ inline void LPAStar::openlistAdd(LPANode* n) {
 // Updates the priority
 // ----------------------------------------------------------------------------
 inline void LPAStar::openlistUpdate(LPANode* n) {
-  //open_list.increase(n->openlist_handle_); -- note -- incremental search: costs can increase or decrease.
   open_list.update(n->openlist_handle_);
 }
 // ----------------------------------------------------------------------------
@@ -241,7 +240,7 @@ inline void LPAStar::updateState(LPANode* n, bool pred_is_overconsistent) {
   if (n != start_n) {
     VLOG(7) << "\t\tupdateState: Start working on " << n->nodeString();
     n->bp_ = retrieveMinPred(n);
-    if (n->bp_ == nullptr /*|| dcm.isDynConst(n->loc_id_, -1, n->t_+1)*/ ) {  // This node is a "dead-end" or has vertex constraint on it.
+    if (n->bp_ == nullptr) {  // This node is a "dead-end" or has vertex constraint on it.
       n->initState();
       if (n->in_openlist_ == true) {
         openlistRemove(n);
@@ -267,7 +266,6 @@ inline void LPAStar::updateState(LPANode* n, bool pred_is_overconsistent) {
     // If goal was found with better priority then update the relevant node.
     if (n->loc_id_ == goal_location &&  // TODO: MAPF has additional time restrictions on goal condition...
         nodes_comparator(n, goal_n) == false) {
-//      delete(goal_n);
       VLOG(7) << "\t\tupdateState: Goal node update -- from " << goal_n->nodeString() << " to " << n->nodeString();
       goal_n = n;
     }
@@ -295,10 +293,9 @@ bool LPAStar::findPath() {
       for (int direction = 0; direction < 5; direction++) {
         auto next_loc_id = curr->loc_id_ + actions_offset[direction];
         if (0 <= next_loc_id && next_loc_id < map_rows*map_cols && !my_map[next_loc_id] &&
-            abs(next_loc_id % map_cols - curr->loc_id_ % map_cols) < 2 /* &&
-            !dcm.isDynCons(curr->loc_id_, next_loc_id, curr->t_+1)*/) {
           auto next_n = retrieveNode(next_loc_id, curr->t_+1);
           updateState(next_n.second, true);
+            abs(next_loc_id % map_cols - curr->loc_id_ % map_cols) < 2) {
         }
       }
     } else {  // Underconsistent (v<g).
@@ -308,8 +305,7 @@ bool LPAStar::findPath() {
       for (int direction = 0; direction < 5; direction++) {
         auto next_loc_id = curr->loc_id_ + actions_offset[direction];
         if (0 <= next_loc_id && next_loc_id < map_rows*map_cols && !my_map[next_loc_id] &&
-            abs(next_loc_id % map_cols - curr->loc_id_ % map_cols) < 2 /* &&
-            !dcm.isDynConst(curr->loc_id_, next_loc_id, curr->t_+1)*/) {
+            abs(next_loc_id % map_cols - curr->loc_id_ % map_cols) < 2) {
           auto next_n = retrieveNode(next_loc_id, curr->t_+1);
           updateState(next_n.second, false);
         }
@@ -362,57 +358,27 @@ dcm(other.dcm)
   // Create a deep copy of each node and store it in the new Hash table.
   allNodes_table.set_empty_key(empty_node);
   allNodes_table.set_deleted_key(deleted_node);
-//  int x1 = allNodes_table.size();
-//  int y1 = other.allNodes_table.size();
-  //allNodes_table = other.allNodes_table;
-//  int x2 = allNodes_table.size();
-//  int y2 = other.allNodes_table.size();
   // Map
   for (auto n : other.allNodes_table) {
-  //for (auto n : allNodes_table) {
-//    if (n.first == other.empty_node)
-//      continue;
-//    if (n.first == other.deleted_node)
-//      continue;
-//    if (n.first == empty_node)
-//      continue;
-//    if (n.first == deleted_node)
-//      continue;
-//    if (n.first == nullptr)
-//      continue;
-//    if (n.second == nullptr)
-//      continue;
-//    if ((long int) (n.second) < 0x10000)
-//      continue;
     allNodes_table[n.first] = new LPANode(*(n.second));  // n is std::pair<Key, Data*>.
-    //allNodes_table[n.second] = new LPANode(*(n.second));  // n is std::pair<Key, Data*>.
   }
-//  int x3 = allNodes_table.size();
-//  int y3 = other.allNodes_table.size();
   // Reconstruct the OPEN list with the cloned nodes.
   // This is efficient enough since FibHeap has amortized constant time insert.
   for (auto it = other.open_list.ordered_begin(); it != other.open_list.ordered_end(); ++it) {
     LPANode* n = allNodes_table[*it];
     n->openlist_handle_ = open_list.push(n);
   }
-//  int z = allNodes_table.size();
   // Update the backpointers of all cloned versions.
   // (before this its bp_ is the original pointer, but we can use the state in it to
   // retrieve the new clone from the newly built hash table).
   for (auto n : allNodes_table) {
-//    int t = allNodes_table.size();
-//    if (n.second == nullptr)
-//      continue;
     if (n.second->bp_ != nullptr) {
-//      if (allNodes_table[n.second->bp_] == nullptr)
-//        continue;
       n.second->bp_ = allNodes_table[n.second->bp_];
     }
   }
   // Update start and goal nodes.
   start_n = allNodes_table[other.start_n];
   goal_n = allNodes_table[other.goal_n];
-  // nodes_comparator = 
 }
 // ----------------------------------------------------------------------------
 
