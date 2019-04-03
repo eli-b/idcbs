@@ -28,7 +28,7 @@ void DynamicConstraintsManager::addVertexConstraint(int loc_id, int ts) {
 	VLOG_IF(1, ml_==nullptr) << "ERROR: Assumes ml_ was set.";
 	for (int direction = 0; direction < 5; direction++) {
 		auto succ_loc_id = loc_id + ml_->moves_offset[direction];
-		if (!ml_->is_blocked(succ_loc_id)) {
+		if (0 <= succ_loc_id && succ_loc_id < ml_->map_size() && !ml_->is_blocked(succ_loc_id)) {
 			addEdgeConstraint(loc_id, succ_loc_id, ts+1);
 			addEdgeConstraint(succ_loc_id, loc_id, ts);
 		}
