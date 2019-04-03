@@ -61,7 +61,7 @@ private:
 	int num_col;
 
 
-	ICBSNode* dummy_start;
+	ICBSNode* root_node;
 	vector < ICBSSingleAgentLLSearch* > search_engines;  // used to find (single) agents' paths and mdd
 	vector<vector<PathEntry>*> paths;
 	vector<vector<PathEntry>> paths_found_initially;  // contain initial paths found
@@ -74,7 +74,7 @@ private:
 	void findConflicts(ICBSNode& curr);
 	void findConflicts(ICBSNode& curr, int a1, int a2);
 	std::shared_ptr<Conflict> classifyConflicts(ICBSNode &parent);
-	std::shared_ptr<Conflict> getHighestPriorityConflict(ICBSNode &parent);
+	std::shared_ptr<Conflict> getHighestPriorityConflict(ICBSNode &node);
 	std::shared_ptr<Conflict> getHighestPriorityConflict(const list<std::shared_ptr<Conflict>>& confs, 
 		const vector<int>& metric, const vector<double>& widthMDD);
 	void copyConflictsFromParent(ICBSNode& curr);
