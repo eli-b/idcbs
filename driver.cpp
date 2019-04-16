@@ -9,8 +9,14 @@
 namespace pt = boost::property_tree;
 using namespace std;
 
+int glog_v;
+
 int main(int argc, char** argv) 
 {
+    // Init GLOG.
+    FLAGS_logtostderr = 1;
+    google::InitGoogleLogging(argv[0]);
+
 	namespace po = boost::program_options;
 	// Declare the supported options.
 	po::options_description desc("Allowed options");
@@ -27,6 +33,7 @@ int main(int argc, char** argv)
 		("screen", po::value<int>()->default_value(0), "screen (0: only results; 1: details)")
 		("cutoffTime", po::value<int>()->default_value(300), "cutoff time (seconds)")
 		("seed", po::value<int>()->default_value(0), "random seed")
+		("verbosity,v", po::value<int>(&glog_v)->default_value(0), "Set verbose logging level")
 	;
 
 	po::variables_map vm;
@@ -38,6 +45,8 @@ int main(int argc, char** argv)
 	}
 
 	po::notify(vm);
+
+    FLAGS_v = glog_v;
 	
 	srand((int)time(0));
 
