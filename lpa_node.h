@@ -32,7 +32,7 @@ class LPANode {
   ///////////////////////////////////////////////////////////////////////////////
   // NOTE -- Normally, compare_node (lhs,rhs) suppose to return true if lhs<rhs.
   //         However, Heaps in STL and Boost are implemented as max-Heap.
-  //         Hence, to achieve min-Heap, we return true if lhs>rhs
+  //         Hence, to achieve min-Heap, we return true if lhs>=rhs
   ///////////////////////////////////////////////////////////////////////////////
   
   // the following is used to compare nodes in (Incremental Search) OPEN list

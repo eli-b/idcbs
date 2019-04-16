@@ -115,9 +115,9 @@ void LPAStar::addVertexConstraint(int loc_id, int ts) {
 // ----------------------------------------------------------------------------
 void LPAStar::addEdgeConstraint(int from_id, int to_id, int ts) {
   dcm.addEdgeConstraint(from_id, to_id, ts);
-  LPANode* n = retrieveNode(to_id, ts).second;
-  if (n->bp_ != nullptr && n->bp_->loc_id_ == from_id) {
-    updateState(n, false);
+  LPANode* to_n = retrieveNode(to_id, ts).second;
+  if (to_n->bp_ != nullptr && to_n->bp_->loc_id_ == from_id) {
+    updateState(to_n, false);
   }
 }
 // ----------------------------------------------------------------------------
@@ -126,7 +126,7 @@ void LPAStar::addEdgeConstraint(int from_id, int to_id, int ts) {
 /*
  * Retrieves a pointer to a node:
  * 1) if it was already generated before, it is retrieved from the hash table and returned (along with true)
- * 2) if this state is seen first, a new node is generated (and initialized) and then put into the hash table and returned (along with false)
+ * 2) if this state is seen for the first time, a new node is generated (and initialized) and then put into the hash table and returned (along with false)
 */
 // ----------------------------------------------------------------------------
 inline std::pair<bool, LPANode*> LPAStar::retrieveNode(int loc_id, int t) {  // (t=0 for single agent)
@@ -214,7 +214,7 @@ inline void LPAStar::printAllNodesTable() {
 
 // ----------------------------------------------------------------------------
 inline LPANode* LPAStar::retrieveMinPred(LPANode* n) {
-  VLOG(11) << "\t\t\t\tretreiveMinPred: before " << n->nodeString();
+  VLOG(11) << "\t\t\t\tretrieveMinPred: before " << n->nodeString();
   LPANode* retVal = nullptr;
   auto best_vplusc_val = std::numeric_limits<float>::max();
   for (int direction = 0; direction < 5; direction++) {
@@ -253,10 +253,11 @@ inline void LPAStar::updateState(LPANode* n, bool bp_already_set) {
         }
     }
     n->g_ = (n->bp_)->v_ + 1;  // If we got to this point this traversal is legal (Assumes edges have unit cost).
-    VLOG(7) << "\t\tupdateState: After updating bp -- " << n->nodeString();
+    VLOG(7) << "\t\tupdateVertex: After updating bp -- " << n->nodeString();
+    // UpdateVertex from the paper:
     if ( !n->isConsistent() ) {
       if (n->in_openlist_ == false) {
-        openlistAdd(n);
+        openlistAdd(n);  // The open list contains all inconsistent nodes
         VLOG(7) << "\t\t\tand *PUSHED* to OPEN";
       } else {  // node is already in OPEN
         openlistUpdate(n);
@@ -268,6 +269,7 @@ inline void LPAStar::updateState(LPANode* n, bool bp_already_set) {
         VLOG(7) << "\t\t\tand *REMOVED* from OPEN";
       }
     }
+    // Not described in the paper, but necessary:
     // If goal was found with better priority then update the relevant node.
     if (n->loc_id_ == goal_location &&  // TODO: MAPF has additional time restrictions on goal condition...
         nodes_comparator(n, goal_n) == false) {
@@ -310,7 +312,7 @@ bool LPAStar::findPath() {
     } else {  // Underconsistent (v<g).
       VLOG(7) << "(it is *under*consistent)";
       curr->v_ = std::numeric_limits<float>::max();
-      updateState(curr);  // should we remove it if it is an illegal move?
+      updateState(curr);
       for (int direction = 0; direction < 5; direction++) {
         auto next_loc_id = curr->loc_id_ + actions_offset[direction];
         if (0 <= next_loc_id && next_loc_id < map_rows*map_cols && !my_map[next_loc_id] &&

@@ -97,7 +97,6 @@ class LPAStar {
   inline void openlistRemove(LPANode* n);
   inline LPANode* openlistPopHead();
   inline LPANode* retrieveMinPred(LPANode* n);
-  bool findPath();
   inline void updateState(LPANode* n, bool bp_already_set=false);
 
   // Vertex constraint semantics: being at loc_id at time ts is disallowed (hence, a move from it to any neighbor at ts is disallowed).
@@ -105,6 +104,9 @@ class LPAStar {
   // Edge constraint semantics: moving from from_id to to_id and arriving there at ts is disallowed.
   void addEdgeConstraint(int from_id, int to_id, int ts);  // Also calls to updateState.
 
+  // Finds a new path, returns whether a solution was found
+  bool findPath();
+  
   string openToString(bool print_priorities) const;
   LPAStar (const LPAStar& other);  // Copy ctor (deep copy).  When splitting this is needed
   ~LPAStar();  // Dtor.
