@@ -24,8 +24,7 @@ class DynamicConstraintsManager {
 public:
 
   // dyn_constraints[i] is a list of disallowed <from_id,to_id> transitions for timestep i.
-  // Note -- to_id=-1 is used for vertex constraint (meaning, being at from_id at timestep i is disallowed).
-  //         Otherwise, moving from from_id to to_id (arriving to to_id at time i) is disallowed.
+  // Meaning arriving to to_id from from_id at time i is disallowed.
   vector < list< pair<int, int> > > dyn_constraints_;
 
   // A reference to the environment (so we can convert Vertex constraints to Edge constraints).

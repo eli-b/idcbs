@@ -243,8 +243,8 @@ inline LPANode* LPAStar::retrieveMinPred(LPANode* n) {
 // ----------------------------------------------------------------------------
 
 
-// note -- we assume that if s was already never visited (/generated) via a call to retrieveNode earlier.
-// TODO: note2 -- parameter bp_already_set used for optimization (section 6 of the LPA* paper).
+// note -- we assume that n was visited (/generated) via a call to retrieveNode earlier
+// note2 -- parameter bp_already_set used for optimization (section 6 of the LPA* paper).
 // ----------------------------------------------------------------------------
 inline void LPAStar::updateState(LPANode* n, bool bp_already_set) {
   if (n != start_n) {
