@@ -296,8 +296,9 @@ bool LPAStar::findPath() {
   expandedHeatMap.push_back(vector<int>());
 
   VLOG(5) << "*** Starting LPA* findPath() ***";
-  while ( nodes_comparator( open_list.top(), goal_n ) == false ||  // open.minkey < key(goal).
-          goal_n->v_ < goal_n->g_) {  // Safe if both are numeric_limits<float>::max.
+  while (open_list.empty() == false &&
+         (nodes_comparator( open_list.top(), goal_n ) == false ||  // open.minkey < key(goal).
+         goal_n->v_ < goal_n->g_)) {  // Safe if both are numeric_limits<float>::max.
     VLOG(5) << "OPEN: { " << openToString(true) << " }\n";
     auto curr = openlistPopHead();
     VLOG(5) << "\tPopped node: " << curr->nodeString();
