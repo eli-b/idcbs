@@ -63,6 +63,13 @@ LPAStar::LPAStar(int start_location, int goal_location, const float* my_heuristi
                        nullptr,                             // bp
                        std::numeric_limits<int>::max());    // t
   allNodes_table[goal_n] = goal_n;
+
+  // For the case of the trivial path - the start node is never passed to updateState
+  if (start_n->loc_id_ == goal_location &&
+      nodes_comparator(start_n, goal_n) == false) {
+    VLOG(7) << "\t\tupdateState: Goal node update -- from " << goal_n->nodeString() << " to " << start_n->nodeString();
+    goal_n = start_n;
+  }
 }
 // ----------------------------------------------------------------------------
 
