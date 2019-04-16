@@ -87,8 +87,11 @@ int main(int argc, char** argv)
 	// validate the solution
 	icbs.isFeasible();
 	// save data
+#ifndef LPA
+    icbs.saveResults(vm["output"].as<string>(), vm["agents"].as<string>(), vm["split"].as<string>());
+#else
 	icbs.saveResults(vm["output"].as<string>(), vm["agents"].as<string>(), vm["split"].as<string>()+"/LPA*");
-
+#endif
 
 	return 0;
 
