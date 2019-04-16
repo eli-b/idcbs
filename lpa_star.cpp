@@ -298,9 +298,13 @@ bool LPAStar::findPath() {
       for (int direction = 0; direction < 5; direction++) {
         auto next_loc_id = curr->loc_id_ + actions_offset[direction];
         if (0 <= next_loc_id && next_loc_id < map_rows*map_cols && !my_map[next_loc_id] &&
-          auto next_n = retrieveNode(next_loc_id, curr->t_+1);
-          updateState(next_n.second, true);
             abs(next_loc_id % map_cols - curr->loc_id_ % map_cols) < 2) {
+            auto next_n = retrieveNode(next_loc_id, curr->t_+1);
+            if (next_n.second->g_ > curr->v_ + 1) {
+                next_n.second->bp_ = curr;
+                //next_n.second->g_ = curr->v_ + 1;  // Done in updateState
+                updateState(next_n.second, true);
+            }
         }
       }
     } else {  // Underconsistent (v<g).
