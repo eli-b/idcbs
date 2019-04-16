@@ -981,13 +981,15 @@ bool ICBSSearch::findPathForSingleAgent(ICBSNode* node, int ag, int timestep, in
 #ifndef LPA
 		foundSol = search_engines[ag]->findShortestPath(newPath.second, cons_table, cat, start, goal, lowerbound, lastGoalConTimestep);
 #else
-		if (start.second == 0 && goal.second == INT_MAX) {
 			foundSol = node->lpas[ag]->findPath();
 			const vector<int> *primitive_path = node->lpas[ag]->getPath(node->lpas[ag]->paths.size() - 1);
 			newPath.second.resize(primitive_path->size());
 			for (int j = 0; j < primitive_path->size(); ++j) {
 				newPath.second[j].location = (*primitive_path)[j];
 				newPath.second[j].buildMDD = false;
+		if (start.second == 0 && goal.second == INT_MAX &&
+				node->lpas[ag] != NULL &&
+				node->lpas[ag]->dcm.dyn_constraints_.size() <= newPath.second.size() + 1) {  // +1 instead of -1 on the unsigned other side. -1 because the vector holds entries also for +1 of every conflict's timestep
 			}
 			newPath.second[0].buildMDD = true;
 			newPath.second[0].single = true;
@@ -998,6 +1000,10 @@ bool ICBSSearch::findPathForSingleAgent(ICBSNode* node, int ag, int timestep, in
 		}
 		else
 		{
+			if (node->lpas[ag] != NULL) {
+				delete node->lpas[ag];  // We've just created this copy - it's unused anywhere else
+				node->lpas[ag] = NULL;
+			}
 			foundSol = search_engines[ag]->findShortestPath(newPath.second, cons_table, cat, start, goal, lowerbound, lastGoalConTimestep);
 		}
 #endif
