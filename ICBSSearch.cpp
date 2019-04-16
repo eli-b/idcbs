@@ -550,6 +550,7 @@ std::shared_ptr<Conflict> ICBSSearch::getHighestPriorityConflict(const list<std:
 			}
 		}
 	}
+#ifndef LPA
 	else // uniformly at random
 	{
 		int id = rand() % confs.size();
@@ -562,6 +563,20 @@ std::shared_ptr<Conflict> ICBSSearch::getHighestPriorityConflict(const list<std:
 				i++;
 		}
 	}
+#else
+	else // Latest - better for LPA*
+	{
+		int latest = -1;
+		int i = 0;
+		for (auto conf : confs)
+		{
+			if (get<4>(*conf) > latest) {
+				choice = conf;
+				latest = get<4>(*conf);
+			}
+		}
+	}
+#endif
 	return choice;
 
 	
