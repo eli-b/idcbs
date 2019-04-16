@@ -86,7 +86,7 @@ class LPAStar {
 /* Updates the path datamember (vector<int>).
    After update it will contain the sequence of locations found from the goal to the start.
 */
-  void updatePath(LPANode* goal);  // $$$ make inline?
+  bool updatePath(LPANode* goal);  // $$$ make inline?
 
 
 /* LPA* helper methods

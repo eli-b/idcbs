@@ -68,12 +68,14 @@ LPAStar::LPAStar(int start_location, int goal_location, const float* my_heuristi
 
 
 // ----------------------------------------------------------------------------
-void LPAStar::updatePath(LPANode* goal) {
+bool LPAStar::updatePath(LPANode* goal) {
   this->paths.push_back(vector<int>());
   this->paths_costs.push_back(0);
 
   LPANode* curr = goal;
   while (curr != start_n) {
+     if (curr == nullptr)
+      return false;
     VLOG(11) << curr->nodeString();
     paths[search_iterations].push_back(curr->loc_id_);
     curr = curr->bp_;
@@ -83,6 +85,7 @@ void LPAStar::updatePath(LPANode* goal) {
           paths[search_iterations].end());
 
   paths_costs[search_iterations] = goal->g_;
+  return true;
 }
 // ----------------------------------------------------------------------------
 
@@ -313,8 +316,7 @@ bool LPAStar::findPath() {
     }
   }
   if (goal_n->g_ < std::numeric_limits<float>::max()) {  // If a solution was found.
-    updatePath(goal_n);
-    return true;
+    return updatePath(goal_n);
   }
   return false;  // No solution found.
 }
