@@ -62,7 +62,8 @@ public:
 	open_handle_t open_handle;
 	focal_handle_t focal_handle;
 
-	void add_constraint(const Constraint&);
+	// Returns the number of generated nodes
+	int add_constraint(const Constraint&);
 
 	void clear();
 

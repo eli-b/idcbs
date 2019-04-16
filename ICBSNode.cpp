@@ -42,13 +42,15 @@ void ICBSNode::clear()
 #endif
 }
 
-void ICBSNode::add_constraint(const Constraint& constraint)
+int ICBSNode::add_constraint(const Constraint& constraint)
 {
 	constraints.push_back(constraint);
 #ifndef LPA
+	return 0;
 #else
     if (lpas[agent_id] != nullptr) {
         lpas[agent_id] = new LPAStar(*lpas[agent_id]);
+        int generated_before = lpas[agent_id]->allNodes_table.size();
         if (get<3>(constraint) == false)  // negative constraint
         {
             if (get<1>(constraint) == -1)
@@ -56,7 +58,8 @@ void ICBSNode::add_constraint(const Constraint& constraint)
             else
                 lpas[agent_id]->addEdgeConstraint(get<0>(constraint), get<1>(constraint), get<2>(constraint));
         }
+        return lpas[agent_id]->allNodes_table.size() - generated_before;
     } else
-        return;
+        return 0;
 #endif
 }
