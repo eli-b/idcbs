@@ -98,7 +98,7 @@ class LPAStar {
   inline LPANode* openlistPopHead();
   inline LPANode* retrieveMinPred(LPANode* n);
   bool findPath();
-  inline void updateState(LPANode* n, bool pred_is_overconsistent=false);
+  inline void updateState(LPANode* n, bool bp_already_set=false);
 
   // Vertex constraint semantics: being at loc_id at time ts is disallowed (hence, a move from it to any neighbor at ts is disallowed).
   void addVertexConstraint(int loc_id, int ts);  // Also calls to updateState.

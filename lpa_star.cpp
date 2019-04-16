@@ -236,19 +236,21 @@ inline LPANode* LPAStar::retrieveMinPred(LPANode* n) {
 // ----------------------------------------------------------------------------
 
 
-// TODO: note2 -- pred_is_overconsistent used for optimization (section 6 of LPA*).
 // note -- we assume that if s was already never visited (/generated) via a call to retrieveNode earlier.
+// TODO: note2 -- parameter bp_already_set used for optimization (section 6 of the LPA* paper).
 // ----------------------------------------------------------------------------
-inline void LPAStar::updateState(LPANode* n, bool pred_is_overconsistent) {
+inline void LPAStar::updateState(LPANode* n, bool bp_already_set) {
   if (n != start_n) {
     VLOG(7) << "\t\tupdateState: Start working on " << n->nodeString();
-    n->bp_ = retrieveMinPred(n);
-    if (n->bp_ == nullptr) {  // This node is a "dead-end" or has vertex constraint on it.
-      n->initState();
-      if (n->in_openlist_ == true) {
-        openlistRemove(n);
-      }
-      return;
+    if (bp_already_set == false) {
+        n->bp_ = retrieveMinPred(n);
+        if (n->bp_ == nullptr) {  // This node is a "dead-end" or has a vertex constraint on it.
+            n->initState();
+            if (n->in_openlist_ == true) {
+                openlistRemove(n);
+            }
+            return;
+        }
     }
     n->g_ = (n->bp_)->v_ + 1;  // If we got to this point this traversal is legal (Assumes edges have unit cost).
     VLOG(7) << "\t\tupdateState: After updating bp -- " << n->nodeString();
