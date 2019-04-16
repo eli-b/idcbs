@@ -986,6 +986,8 @@ bool ICBSSearch::findPathForSingleAgent(ICBSNode* node, int ag, int timestep, in
 		if (start.second == 0 && goal.second == INT_MAX &&
 				node->lpas[ag] != NULL &&
 				node->lpas[ag]->dcm.dyn_constraints_.size() <= newPath.second.size() + 1) {  // +1 instead of -1 on the unsigned other side. -1 because the vector holds entries also for +1 of every conflict's timestep
+			if (screen)
+				cout << "Calling LPA* again for agent " << ag << endl;
 			int generated_before = node->lpas[ag]->allNodes_table.size();
 			foundSol = node->lpas[ag]->findPath();
 			if (foundSol) {
@@ -1007,6 +1009,9 @@ bool ICBSSearch::findPathForSingleAgent(ICBSNode* node, int ag, int timestep, in
 		}
 		else
 		{
+			if (screen)
+				cout << "Calling normal A* for agent " << ag << " instead of LPA* because LPA* can't handle a changed "
+						"start or a constraint after reaching the goal, and can't recover if it was unable in the past" << endl;
 			if (node->lpas[ag] != NULL) {
 				delete node->lpas[ag];  // We've just created this copy - it's unused anywhere else
 				node->lpas[ag] = NULL;
@@ -1057,6 +1062,8 @@ bool ICBSSearch::findPathForSingleAgent(ICBSNode* node, int ag, int timestep, in
 	}
 
 	node->makespan = max(node->makespan, (int)newPath.second.size() - 1);
+	if (screen)
+		this->printPaths();
 	return true;
 }
 
@@ -1106,16 +1113,17 @@ bool ICBSSearch::isPathsConsistentWithConstraints(ICBSNode* curr) const
 						{
 							if (get<2>(con) < paths[i]->size() && paths[i]->at(get<2>(con)).location != get<0>(con))
 							{
-								std::cout << "Path violates constraint" << std::endl;
-								system("pause");
+								std::cout << "Path " << i << " violates constraint " << con << std::endl;
+								exit(1);
 							}
 						}
 						else // edge constraint
 						{
-							if (get<2>(con) < paths[i]->size() && paths[i]->at(get<2>(con) - 1).location != get<0>(con) || paths[i]->at(get<2>(con)).location != get<1>(con))
+							if (get<2>(con) < paths[i]->size() && paths[i]->at(get<2>(con) - 1).location != get<0>(con) ||
+									paths[i]->at(get<2>(con)).location != get<1>(con))
 							{
-								std::cout << "Path violates constraint" << std::endl;
-								system("pause");
+								std::cout << "Path " << i << " violates constraint " << con << std::endl;
+								exit(1);
 							}
 						}
 					}
@@ -1126,8 +1134,8 @@ bool ICBSSearch::isPathsConsistentWithConstraints(ICBSNode* curr) const
 						{
 							if (paths[i]->at(get<2>(con)).location == get<0>(con))
 							{
-								std::cout << "Path violates constraint" << std::endl;
-								system("pause");
+								std::cout << "Path " << i << " violates constraint " << con << std::endl;
+								exit(1);
 							}
 						}
 						else // edge constraint
@@ -1136,8 +1144,8 @@ bool ICBSSearch::isPathsConsistentWithConstraints(ICBSNode* curr) const
 								paths[i]->at(get<2>(con) - 1).location == get<0>(con) ||
 								paths[i]->at(get<2>(con)).location == get<1>(con))
 							{
-								std::cout << "Path violates constraint" << std::endl;
-								system("pause");
+								std::cout << "Path " << i << " violates constraint " << con << std::endl;
+								exit(1);
 							}
 						}
 					}
@@ -1149,21 +1157,21 @@ bool ICBSSearch::isPathsConsistentWithConstraints(ICBSNode* curr) const
 				{
 					if (paths[curr->agent_id]->size() > get<2>(con) && paths[curr->agent_id]->at(get<2>(con)).location == get<0>(con))
 					{
-						std::cout << "Path violates constraint" << std::endl;
-						system("pause");
+						std::cout << "Path " << curr->agent_id << " violates constraint " << con << std::endl;
+						exit(1);
 					}
 					else if (paths[curr->agent_id]->size() <= get<2>(con) && paths[curr->agent_id]->back().location == get<0>(con))
 					{
-						std::cout << "Path violates constraint" << std::endl;
-						system("pause");
+						std::cout << "Path " << curr->agent_id << " violates constraint " << con << std::endl;
+						exit(1);
 					}
 				}
 				else // edge constraint
 				{
 					if (paths[curr->agent_id]->at(get<2>(con) - 1).location == get<0>(con) && paths[curr->agent_id]->at(get<2>(con)).location == get<1>(con))
 					{
-						std::cout << "Path violates constraint" << std::endl;
-						system("pause");
+						std::cout << "Path " << curr->agent_id << " violates constraint " << con << std::endl;
+						exit(1);
 					}
 				}
 			}
@@ -1179,7 +1187,7 @@ void ICBSSearch::isFeasible() const
 	if (!solution_found)
 		return;
 	else if (solution_cost != min_f_val)
-		cout << "Solution cost != min f val" << endl;
+		cout << "Solution cost " << solution_cost << " != min f val " << min_f_val << endl;
 	int sum = 0;
 	for (int i = 0; i < num_of_agents; i++)
 	{
@@ -1389,9 +1397,17 @@ void ICBSSearch::saveResults(const string& outputFile, const string& agentFile, 
 bool ICBSSearch::runICBSSearch() 
 {
 	if (HL_heuristic)
+#ifndef LPA
 		std::cout << "CBSH: " << std::endl;
+#else
+		std::cout << "CBSH/LPA*: " << std::endl;
+#endif
 	else
-		std::cout << "ICBS: " << std::endl;
+#ifndef LPA
+        std::cout << "ICBS: " << std::endl;
+#else
+        std::cout << "ICBS/LPA*: " << std::endl;
+#endif
 	// set timer
 	std::clock_t start;
 	start = std::clock();
@@ -1462,12 +1478,12 @@ bool ICBSSearch::runICBSSearch()
 		
 		if (screen == 1)
 		{
-			std::cout << std::endl << "****** Expanded #" << curr->time_generated 
+			std::cout << std::endl << "****** Expanding #" << curr->time_generated
 				<< " with f= " << curr->g_val <<	 "+" << curr->h_val << " (";
 			for (int i = 0; i < num_of_agents; i++)
 				std::cout << paths[i]->size() - 1 << ", ";
 			std::cout << ")" << std::endl;
-			std::cout << "Choose conflict " << (*curr->conflict) << std::endl;
+			std::cout << "Chose conflict " << (*curr->conflict) << std::endl;
 		}
 
 		if (split == split_strategy::DISJOINT3)
@@ -1640,6 +1656,8 @@ ICBSSearch::ICBSSearch(const MapLoader& ml, const AgentsLoader& al, double focal
 		if (search_engines[i]->findShortestPath(paths_found_initially[i], cons_table, cat, start, goal, 0, -1) == false)
 #else
 		// FIXME: currently ignoring the CAT
+		if (screen)
+			cout << "Calling LPA* for the first time for agent " << i << endl;
 		if (root_node->lpas[i]->findPath() == false)
 #endif
 		{
@@ -1667,7 +1685,8 @@ ICBSSearch::ICBSSearch(const MapLoader& ml, const AgentsLoader& al, double focal
 		LL_num_expanded += search_engines[i]->num_expanded;
 		LL_num_generated += search_engines[i]->num_generated;
 	}
-
+	if (screen)
+		this->printPaths();
 
 	// generate dummy start and update data structures
 	root_node->agent_id = -1;

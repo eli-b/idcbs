@@ -83,6 +83,7 @@ int main(int argc, char** argv)
 	icbs.propagation = vm["propagation"].as<bool>();
 	// run 
 	icbs.runICBSSearch();
+	icbs.printPaths();
 	// validate the solution
 	icbs.isFeasible();
 	// save data
