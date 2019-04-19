@@ -324,7 +324,7 @@ void ICBSSearch::findConflicts(ICBSNode& curr)
 		}
 	}
 	else // root node
-	{ // detect conflcits among all paths
+	{ // detect conflicts among all paths
 		for(int a1 = 0; a1 < num_of_agents ; a1++)
 		{
 			for (int a2 = a1 + 1; a2 < num_of_agents; a2++)
@@ -363,7 +363,7 @@ void ICBSSearch::findConflicts(ICBSNode& curr, int a1, int a2)
 		{
 			int loc2 = paths[a2_]->at(timestep).location;
 			if (loc1 == loc2)
-			{// It's at least a semi conflict			
+			{ // It's at least a semi cardinal conflict
 				curr.unknownConf.push_front(std::shared_ptr<Conflict>(new Conflict(a1_, a2_, loc1, -1, timestep))); 
 			}
 		}
@@ -817,7 +817,7 @@ void ICBSSearch::branch(ICBSNode* curr, ICBSNode* n1, ICBSNode*n2)
 	}
 }
 
-// plan paths for a child node
+// plan paths for a child node, returns whether a path was found
 bool ICBSSearch::generateChild(ICBSNode*  node)
 {
 	int h = 0;
