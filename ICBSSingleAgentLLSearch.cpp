@@ -2,9 +2,9 @@
 
 
 // Updates the path.
-void ICBSSingleAgentLLSearch::updatePath(const LLNode* goal, vector<PathEntry> &path)
+void ICBSSingleAgentLLSearch::updatePath(const ICBSSingleAgentLLNode* goal, vector<PathEntry> &path)
 {
-	const LLNode* curr = goal;
+	const ICBSSingleAgentLLNode* curr = goal;
 	int old_length = (int)path.size();
 	if (goal->timestep >= old_length)
 		path.resize(goal->timestep + 1);
@@ -137,7 +137,7 @@ bool ICBSSingleAgentLLSearch::findPath(vector<PathEntry> &path,
 	hashtable_t::iterator it;  // will be used for find()
 
 	 // generate root and add it to the FOCAL list
-	LLNode* root = new LLNode(start.first, 0, 
+	ICBSSingleAgentLLNode* root = new ICBSSingleAgentLLNode(start.first, 0, 
 		getDifferentialHeuristic(start.first, goal.first), NULL, start.second, 0, false);
 	num_generated++;
 	root->focal_handle = focal_list.push(root);
@@ -145,7 +145,7 @@ bool ICBSSingleAgentLLSearch::findPath(vector<PathEntry> &path,
 
 	while (!focal_list.empty())
 	{
-		LLNode* curr = focal_list.top(); focal_list.pop();
+		ICBSSingleAgentLLNode* curr = focal_list.top(); focal_list.pop();
 		
 		// check if the popped node is a goal
 		if (curr->timestep == goal.second) 
@@ -182,7 +182,7 @@ bool ICBSSingleAgentLLSearch::findPath(vector<PathEntry> &path,
 					numOfConflictsForStep(curr->loc, next_id, next_timestep, cat);
 
 				// generate (maybe temporary) node
-				LLNode* next = new LLNode(next_id, next_g_val, next_h_val,	curr, 
+				ICBSSingleAgentLLNode* next = new ICBSSingleAgentLLNode(next_id, next_g_val, next_h_val,	curr, 
 					next_timestep, next_internal_conflicts, false);		
 				it = allNodes_table.find(next);// try to retrieve it from the hash table
 				if (it == allNodes_table.end())
@@ -194,7 +194,7 @@ bool ICBSSingleAgentLLSearch::findPath(vector<PathEntry> &path,
 				else 
 				{  // update existing node's if needed
 					delete(next);  // not needed anymore -- we already generated it before
-					LLNode* existing_next = (*it).second;
+					ICBSSingleAgentLLNode* existing_next = (*it).second;
 					if (existing_next->num_internal_conf > next_internal_conflicts) // if there's fewer internal conflicts
 					{
 						// update existing node
@@ -229,7 +229,7 @@ bool ICBSSingleAgentLLSearch::findShortestPath(vector<PathEntry> &path,
 	hashtable_t::iterator it;  // will be used for find()
 
 	 // generate start and add it to the OPEN list
-	LLNode* root = new LLNode(start.first, 0, my_heuristic[start.first], NULL, start.second, 0, false);
+	ICBSSingleAgentLLNode* root = new ICBSSingleAgentLLNode(start.first, 0, my_heuristic[start.first], NULL, start.second, 0, false);
 	num_generated++;
 	root->open_handle = open_list.push(root);
 	root->focal_handle = focal_list.push(root);
@@ -242,7 +242,7 @@ bool ICBSSingleAgentLLSearch::findShortestPath(vector<PathEntry> &path,
 
 	while (!focal_list.empty()) 
 	{
-		LLNode* curr = focal_list.top(); focal_list.pop();
+		ICBSSingleAgentLLNode* curr = focal_list.top(); focal_list.pop();
 		open_list.erase(curr->open_handle);
 		curr->in_openlist = false;	
 
@@ -274,7 +274,7 @@ bool ICBSSingleAgentLLSearch::findShortestPath(vector<PathEntry> &path,
 					numOfConflictsForStep(curr->loc, next_id, next_timestep, cat);
 				
 				// generate (maybe temporary) node
-				LLNode* next = new LLNode(next_id, next_g_val, next_h_val, curr, next_timestep, next_internal_conflicts, false);		
+				ICBSSingleAgentLLNode* next = new ICBSSingleAgentLLNode(next_id, next_g_val, next_h_val, curr, next_timestep, next_internal_conflicts, false);		
 				it = allNodes_table.find(next); // try to retrieve it from the hash table
 				if (it == allNodes_table.end()) 
 				{
@@ -288,7 +288,7 @@ bool ICBSSingleAgentLLSearch::findShortestPath(vector<PathEntry> &path,
 				else
 				{  // update existing node's if needed (only in the open_list)
 					delete(next);  // not needed anymore -- we already generated it before
-					LLNode* existing_next = (*it).second;
+					ICBSSingleAgentLLNode* existing_next = (*it).second;
 					if (existing_next->in_openlist == true) // if its in the open list
 					{ 
 						if (existing_next->num_internal_conf > next_internal_conflicts)// if there's less internal conflicts
@@ -310,12 +310,12 @@ bool ICBSSingleAgentLLSearch::findShortestPath(vector<PathEntry> &path,
 		if (open_list.size() == 0)  // in case OPEN is empty, no path found...
 			break;
 		// update FOCAL if min f-val increased
-		LLNode* open_head = open_list.top();
+		ICBSSingleAgentLLNode* open_head = open_list.top();
 		if (open_head->getFVal() > min_f_val) 
 		{
 			int new_min_f_val = open_head->getFVal();
 			int new_lower_bound = max(lower_bound,  new_min_f_val);
-			for (LLNode* n : open_list) 
+			for (ICBSSingleAgentLLNode* n : open_list) 
 			{
 				if (n->getFVal() > lower_bound && n->getFVal() <= new_lower_bound) 
 				{
@@ -352,9 +352,9 @@ ICBSSingleAgentLLSearch::ICBSSingleAgentLLSearch(int start_location, int goal_lo
 	this->map_size = num_row * num_col;
 
 	// initialize allNodes_table (hash table)
-	empty_node = new LLNode();
+	empty_node = new ICBSSingleAgentLLNode();
 	empty_node->loc = -1;
-	deleted_node = new LLNode();
+	deleted_node = new ICBSSingleAgentLLNode();
 	deleted_node->loc = -2;
 	allNodes_table.set_empty_key(empty_node);
 	allNodes_table.set_deleted_key(deleted_node);

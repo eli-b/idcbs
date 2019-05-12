@@ -25,8 +25,8 @@ add_executable(disjoint_CBSH
         ICBSNode.h
         ICBSSearch.cpp
         ICBSSearch.h
-        LLNode.cpp
-        LLNode.h
+        ICBSSingleAgentLLNode.cpp
+        ICBSSingleAgentLLNode.h
         lpa_node.cpp
         lpa_node.h
         lpa_star.cpp
