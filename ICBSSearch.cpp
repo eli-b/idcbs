@@ -112,9 +112,11 @@ void ICBSSearch::collectConstraints(ICBSNode* curr, std::list<pair<int, Constrai
 	}
 }
 
-// build the constraint table 
-// update cons_table: cons_table[time_step][location].vertex or .edge = true or false
-// update start and goal: the two landmarks such that the paths between them violates the new posted constraint (at timestep)
+// build the constraint table for replanning agent <agent_id>,
+// and find the two closest landmarks for agent <agent_id> that have the new constraint at time step <timestep> between them.
+// TODO: Consider splitting into two functions
+// update cons_table: cons_table[time_step][location].vertex or .edge = true iff they're a negative constraint for the agent
+// update start and goal: the two landmarks for the agent such that its path between them violates the newly posted constraint (at timestep)
 // return last goal constraint timestep - the time of the last constraint on an agent's goal
 int ICBSSearch::buildConstraintTable(ICBSNode* curr, int agent_id, int timestep,
 	std::vector < std::unordered_map<int, ConstraintState > >& cons_table, 
@@ -127,77 +129,78 @@ int ICBSSearch::buildConstraintTable(ICBSNode* curr, int agent_id, int timestep,
 	list < Constraint > constraints_negative;
 	while (curr != root_node)
 	{
-		for(auto con: curr->constraints)
+		for (auto con: curr->constraints)
 		{
-			if (get<3>(con)) // positive constraint is valid for everyone
+			auto [loc1, loc2, constraint_timestep, positive_constraint] = con;
+			if (positive_constraint) // positive constraints affect all agents
 			{
 				if (curr->agent_id == agent_id) // for the constrained agent, it is a landmark
 				{
-					if (get<1>(con) < 0) // vertex constraint
+					if (loc2 < 0) // vertex constraint
 					{
-						if (start.second < get<2>(con) && get<2>(con) < timestep) // the landmark is between (start.second, timestep)
+						if (start.second < constraint_timestep && constraint_timestep < timestep)  // This landmark is between (start.second, timestep)
 						{ // update start
-							start.first = get<0>(con);
-							start.second = get<2>(con);
+							start.first = loc1;
+							start.second = constraint_timestep;
 						}
-						else if (timestep <= get<2>(con) && get<2>(con) < goal.second)// the landmark is between [timestep, goal.second)
+						else if (timestep <= constraint_timestep && constraint_timestep < goal.second)  // the landmark is between [timestep, goal.second)
 						{ // update goal
-							goal.first = get<0>(con);
-							goal.second = get<2>(con);
+							goal.first = loc1;
+							goal.second = constraint_timestep;
+							// If the landmark is at the same timestep as the new constraint, planning the new path will surely fail
 						}
 					}
-					else // edge constraint, viewed as two landmarks
+					else // edge constraint, viewed as two landmarks on the from-vertex and the to-vertex
 					{
-						if (start.second < get<2>(con) && get<2>(con) < timestep) // the second landmark is between (start.second, timestep)
+						if (start.second < constraint_timestep && constraint_timestep < timestep)  // the second landmark is between (start.second, timestep)
 						{ // update start
-							start.first = get<1>(con);
-							start.second = get<2>(con);
+							start.first = loc2;
+							start.second = constraint_timestep;
 						}
-						else if (timestep <= get<2>(con) - 1 && get<2>(con) - 1 < goal.second)// the first landmark is between [timestep, goal.second)
+						else if (timestep <= constraint_timestep - 1 && constraint_timestep - 1 < goal.second)  // the first landmark is between [timestep, goal.second)
 						{ // update goal
-							goal.first = get<0>(con);
-							goal.second = get<2>(con) - 1;
+							goal.first = loc1;
+							goal.second = constraint_timestep - 1;
 						}
 					}
 					constraints_positive.push_back(con);
 				}
 				else // for the other agents, it is equivalent to a negative constraint
 				{
+					if (loc1 == goal.first && loc2 < 0 && lastGoalConsTimestep < constraint_timestep) {
+						lastGoalConsTimestep = constraint_timestep;
+					}
 					constraints_negative.push_back(con);
-					if (get<0>(con) == goal.first && get<1>(con) < 0 && lastGoalConsTimestep <  get<2>(con))
-						lastGoalConsTimestep = get<2>(con); // update last goal constraint timestep
 				}
 			}
-			else if (curr->agent_id >= num_of_agents) // this is used for Disjoint3
-			{ // the negative constraint is imposed on both a1 and a2
-				int a1 = curr->agent_id / num_of_agents - 1;
-				int a2 = curr->agent_id % num_of_agents;
-				if (a1 == agent_id)
+			else {  // Then it's a negative constraint
+				if (curr->agent_id >= num_of_agents)  // This is used for Disjoint3. The negative constraint is imposed on both a1 and a2.
 				{
-					constraints_negative.push_back(con);
-					if (get<0>(con) == goal.first && get<1>(con) < 0 && lastGoalConsTimestep <  get<2>(con))
-						lastGoalConsTimestep = get<2>(con);// update last goal constraint timestep
-				}
-				else if (a2 == agent_id)
-				{
-					if (get<1>(con) >= 0) // edge constraint
-					{ // need to swap lcoations
-						constraints_negative.push_back(make_tuple(get<1>(con), get<0>(con), get<2>(con), false));
-					}
-					else
-					{ 
+					int a1 = curr->agent_id / num_of_agents - 1;
+					int a2 = curr->agent_id % num_of_agents;
+					// FIXME: This is a little hacky.
+					if (a1 == agent_id) {
 						constraints_negative.push_back(con);
-						if (get<0>(con) == goal.first && get<1>(con) < 0 && lastGoalConsTimestep <  get<2>(con))
-							lastGoalConsTimestep = get<2>(con);// update last goal constraint timestep
+						if (loc1 == goal.first && loc2 < 0 && lastGoalConsTimestep < constraint_timestep)
+							lastGoalConsTimestep = constraint_timestep;
+					} else if (a2 == agent_id) {
+						if (loc2 >= 0) // edge constraint
+						{ // need to swap locations
+							constraints_negative.push_back(make_tuple(loc2, loc1, constraint_timestep, false));
+							// FIXME: Don't we need to conditionally update lastGoalConsTimestep here too?
+						} else {
+							constraints_negative.push_back(con);
+							if (loc1 == goal.first && loc2 < 0 && lastGoalConsTimestep < constraint_timestep)
+								lastGoalConsTimestep = constraint_timestep;
+						}
+
 					}
-					
+				} else if (curr->agent_id == agent_id) // negative constraints only affect the current agent
+				{
+					constraints_negative.push_back(con);
+					if (loc1 == goal.first && loc2 < 0 && lastGoalConsTimestep < constraint_timestep)
+						lastGoalConsTimestep = constraint_timestep;
 				}
-			}
-			else if (curr->agent_id == agent_id) // negtive constraint only matters for the current agent
-			{
-				constraints_negative.push_back(con);
-				if (get<0>(con) == goal.first && get<1>(con) < 0 && lastGoalConsTimestep <  get<2>(con))
-					lastGoalConsTimestep = get<2>(con);// update last goal constraint timestep
 			}
 		}
 		curr = curr->parent;
@@ -205,33 +208,35 @@ int ICBSSearch::buildConstraintTable(ICBSNode* curr, int agent_id, int timestep,
 	if (lastGoalConsTimestep > goal.second) // because we only need to replan paths before goal.second
 		lastGoalConsTimestep = -1;
 
+	// Build the agent's negative constraints table
 	for (list< Constraint >::iterator it = constraints_negative.begin(); it != constraints_negative.end(); it++) 
 	{
-		if (!get<3>(*it)) // it is a negetive constraint for this agent
+		auto [loc1, loc2, constraint_timestep, positive_constraint] = *it;
+		if (!positive_constraint)
 		{
-			if (get<1>(*it) < 0) // vertex constraint
-				cons_table[get<2>(*it)][get<0>(*it)].vertex = true;
+			if (loc2 < 0) // vertex constraint
+				cons_table[constraint_timestep][loc1].vertex = true;
 			else // edge constraint
 			{
 				for(int i = 0; i < MapLoader::valid_moves_t::WAIT_MOVE; i++)
 				{
-					if (get<1>(*it) - get<0>(*it) == moves_offset[i])
+					if (loc2 - loc1 == moves_offset[i])
 					{
-						cons_table[get<2>(*it)][get<1>(*it)].edge[i] = true;
+						cons_table[constraint_timestep][loc2].edge[i] = true;
 					}
 				}
 			}
 		}
-		else if (get<1>(*it) < 0) // positive vertex constraint for other agent
-			cons_table[get<2>(*it)][get<0>(*it)].vertex = true;
-		else // positive edge constraint for other agent
+		else if (loc2 < 0)  // positive vertex constraint for other agent
+			cons_table[constraint_timestep][loc1].vertex = true;
+		else  // positive edge constraint for other agent
 		{
-			cons_table[get<2>(*it) - 1][get<0>(*it)].vertex = true;
-			cons_table[get<2>(*it)][get<1>(*it)].vertex = true;
+			cons_table[constraint_timestep - 1][loc1].vertex = true;
+			cons_table[constraint_timestep][loc2].vertex = true;
 			for (int i = 0; i < MapLoader::valid_moves_t::WAIT_MOVE; i++)
 			{
-				if (get<0>(*it) - get<1>(*it) == moves_offset[i])
-					cons_table[get<2>(*it)][get<0>(*it)].edge[i] = true;
+				if (loc1 - loc2 == moves_offset[i])
+					cons_table[constraint_timestep][loc1].edge[i] = true;
 			}
 		}
 			
@@ -240,8 +245,8 @@ int ICBSSearch::buildConstraintTable(ICBSNode* curr, int agent_id, int timestep,
 }
 
 // build conflict avoidance table
-// update cat: cat[time_step][location].vertex or .edge = true or false
-void ICBSSearch::buildConflictAvoidanceTable(std::vector < std::unordered_map<int, ConstraintState > >& cat,
+// update cat: Set cat[time_step][location].vertex or .edge[direction] to the number of other agents that plan to use it
+void ICBSSearch::buildConflictAvoidanceTable(std::vector < std::unordered_map<int, AvoidanceState > >& cat,
 	int exclude_agent, const ICBSNode &node)
 {
 	if (node.makespan == 0)
@@ -256,13 +261,13 @@ void ICBSSearch::buildConflictAvoidanceTable(std::vector < std::unordered_map<in
 }
 
 // add a path to cat
-void ICBSSearch::addPathToConflictAvoidanceTable(std::vector < std::unordered_map<int, ConstraintState > >& cat, int ag)
+void ICBSSearch::addPathToConflictAvoidanceTable(std::vector < std::unordered_map<int, AvoidanceState > >& cat, int ag)
 {
 	cat[0][paths[ag]->at(0).location].vertex = true;
 	for (size_t timestep = 1; timestep < cat.size(); timestep++)
 	{
-		if (timestep >= paths[ag]->size())
-			cat[timestep][paths[ag]->back().location].vertex = true;
+		if (timestep >= paths[ag]->size() && cat[timestep][paths[ag]->back().location].vertex < 255)
+			cat[timestep][paths[ag]->back().location].vertex++;
 		else
 		{
 			int to = paths[ag]->at(timestep).location;
@@ -270,8 +275,8 @@ void ICBSSearch::addPathToConflictAvoidanceTable(std::vector < std::unordered_ma
 			cat[timestep][to].vertex = true;
 			for (int i = 0; i < MapLoader::valid_moves_t::WAIT_MOVE; i++)
 			{
-				if (from - to == moves_offset[i])
-					cat[timestep][from].edge[i] = true;
+				if (from - to == moves_offset[i] && cat[timestep][from].edge[i] < 255)
+					cat[timestep][from].edge[i]++;
 			}
 		}
 	}
@@ -623,121 +628,150 @@ void ICBSSearch::buildMDD(ICBSNode& curr, int ag, int timestep, int lookahead)
 	}
 }
 
+int ICBSSearch::countMddSingletons(int agent_id, int conflict_timestep)
+{
+	int num_singletons = 0;
+	if (conflict_timestep < (int)paths[agent_id]->size())
+		for (int j = 0; j < conflict_timestep; j++)
+		{
+			if (paths[agent_id]->at(j).buildMDD && paths[agent_id]->at(j).single)
+				num_singletons++;
+		}
+	return num_singletons;
+}
+
+int ICBSSearch::getTotalMddWidth(int agent_id)
+{
+	int width = 0;
+	for (int j = 0; j < paths[agent_id]->size(); j++)
+	{
+		width += paths[agent_id]->at(j).numMDDNodes;
+	}
+	return width;
+}
+
+void ICBSSearch::addPositiveConstraintsOnNarrowLevelsLeadingToPositiveConstraint(int agent_id, int timestep,
+		ICBSNode* n1, ICBSNode* n2, const std::vector < std::unordered_map<int, AvoidanceState > >* catp)
+{
+	if (posConstraintsAlsoAddPosConstraintsOnMddNarrowLevelsLeadingToThem)
+	// The MDD levels up to the positive constraint are a superset of the MDD levels of the MDD for reaching
+	// the location of the positive constraint at the time of the positive constraint, so any 1-width level
+	// among the levels up to that of the positive constraint is also a 1-width level in the MDD for the agent
+	// to reach the positive constraint (we know the positive constraint is reachable so it can't be a
+	// 0-width level in the smaller MDD). Every 1-width level's node can also be added as a positive constraint
+	// - we must pass through it to reach the positive constraint we added.
+	{
+		for (int i = timestep; i > 0; i--)
+		{
+			if (!paths[agent_id]->at(i).buildMDD)  // No MDD for this level. When does this happen?
+				break;
+			else if (!paths[agent_id]->at(i).single)  // Not a 1-width MDD level.
+				continue;
+			else if (paths[agent_id]->at(i - 1).buildMDD && paths[agent_id]->at(i - 1).single) {  // Safe because i > 0
+				// This level is narrow and the previous one too - add a positive edge constraint between their
+				// nodes. It's preferable over two positive constraints for some reason.
+				LL_num_generated += n1->add_constraint(
+						make_tuple(paths[agent_id]->at(i - 1).location, paths[agent_id]->at(i).location, i, true), catp);
+			}
+			else if (i < timestep && !paths[agent_id]->at(i + 1).single) {
+				// This level is narrow, and the *next* one isn't (so we didn't already add a positive edge
+				// constraint between them) - add a positive vertex constraint for this level's node
+				LL_num_generated += n1->add_constraint(
+						make_tuple(paths[agent_id]->at(i).location, -1, i, true), catp);
+			}
+		}
+	}
+}
+
 
 //////////////////// GENERATE A NODE ///////////////////////////
 // add constraints to child nodes
-void ICBSSearch::branch(ICBSNode* curr, ICBSNode* n1, ICBSNode*n2)
+void ICBSSearch::branch(ICBSNode* curr, ICBSNode* n1, ICBSNode* n2)
 {
-	int agent1_id, agent2_id, location1, location2, timestep;
-	tie(agent1_id, agent2_id, location1, location2, timestep) = *curr->conflict;
+	auto [agent1_id, agent2_id, location1, location2, timestep] = *curr->conflict;
 
 
-	if (split == split_strategy::RANDOM) // New split method - random
+	if (split == split_strategy::RANDOM)  // A disjoint split that chooses the agent to work on randomly
 	{
 		int id;
-		if (rand() % 2 == 0)
+		if (rand() % 2 == 0) {
 			id = agent1_id;
-		else
+		}
+		else {
 			id = agent2_id;
+		}
+
+		std::vector<std::unordered_map<int, AvoidanceState>>* catp = nullptr;
+#ifndef LPA
+#else
+		// build a conflict-avoidance table for the agent we'll constrain
+		std::vector < std::unordered_map<int, AvoidanceState > > cat(curr->makespan + 1);
+		buildConflictAvoidanceTable(cat, id, *curr);
+		catp = &cat;
+#endif
 
 		n1->agent_id = id;
 		n2->agent_id = id;
-		if (location2 >= 0 && id == agent2_id) //edge constraint for the second agent
+		if (location2 >= 0 && id == agent2_id) // Adding an edge constraint for the second agent - the constraint will
+											   // be on traversing the edge in the opposite direction
 		{
-			LL_num_generated += n1->add_constraint(make_tuple(location2, location1, timestep, true));
-			LL_num_generated += n2->add_constraint(make_tuple(location2, location1, timestep, false));
+			LL_num_generated += n1->add_constraint(make_tuple(location2, location1, timestep, true), catp);
+			LL_num_generated += n2->add_constraint(make_tuple(location2, location1, timestep, false), catp);
 		}
 		else
 		{
-			LL_num_generated += n1->add_constraint(make_tuple(location1, location2, timestep, true));
-			LL_num_generated += n2->add_constraint(make_tuple(location1, location2, timestep, false));
+			LL_num_generated += n1->add_constraint(make_tuple(location1, location2, timestep, true), catp);
+			LL_num_generated += n2->add_constraint(make_tuple(location1, location2, timestep, false), catp);
 		}
+
+		addPositiveConstraintsOnNarrowLevelsLeadingToPositiveConstraint(id, timestep, n1, n2, catp);
 	}
-	else if (split == split_strategy::SINGLETONS)
+	else if (split == split_strategy::SINGLETONS)  // A disjoint split that chooses the agent to work on to be the one
+												   // with the smaller number of 1-width levels in each agent's MDD,
+												   // and if they're equal, the one with the smaller total width of all
+												   // levels in its MDD, divided by the size of the MDD
 	{
-		int num_singleton1 = 0;
-		int num_singleton2 = 0;
-		double width1 = 0;
-		double width2 = 0;
-		for (int j = 0; j < paths[agent1_id]->size(); j++)
-		{
-			width1 += paths[agent1_id]->at(j).numMDDNodes;
-		}
-		width1 /= paths[agent1_id]->size();
-		for (int j = 0; j < paths[agent2_id]->size(); j++)
-		{
-			width2 += paths[agent2_id]->at(j).numMDDNodes;
-		}
-		width2 /= paths[agent2_id]->size();
-		if (timestep < (int)paths[agent1_id]->size())
-			for (int j = 0; j < timestep; j++)
-			{
-				if (paths[agent1_id]->at(j).buildMDD && paths[agent1_id]->at(j).single)
-					num_singleton1++;
-			}
-		if (timestep < (int)paths[agent2_id]->size())
-			for (int j = 0; j < timestep; j++)
-			{
-				if (paths[agent2_id]->at(j).buildMDD && paths[agent2_id]->at(j).single)
-					num_singleton2++;
-			}
+		int num_singletons_1 = countMddSingletons(agent1_id, timestep);
+		int num_singletons_2 = countMddSingletons(agent2_id, timestep);
 		int id;
-		if (num_singleton1 > num_singleton2)
+		if (num_singletons_1 > num_singletons_2)
 			id = agent1_id;
-		else if (num_singleton1 < num_singleton2)
+		else if (num_singletons_1 < num_singletons_2)
 			id = agent2_id;
-		else if (width1 < width2)
-			id = agent1_id;
-		else
-			id = agent2_id;
+		else {
+			double normalized_width1 = float(getTotalMddWidth(agent1_id)) / paths[agent1_id]->size();
+			double normalized_width2 = float(getTotalMddWidth(agent2_id)) / paths[agent2_id]->size();
+			if (normalized_width1 < normalized_width2)
+				id = agent1_id;
+			else
+				id = agent2_id;
+		}
+
 		n1->agent_id = id;
 		n2->agent_id = id;
-		if (location2 < 0) // vertex constraint
+		std::vector<std::unordered_map<int, AvoidanceState>>* catp = nullptr;
+#ifndef LPA
+#else
+		// build a conflict-avoidance table for the agent we'll constrain
+		std::vector < std::unordered_map<int, AvoidanceState > > cat(curr->makespan + 1);
+		buildConflictAvoidanceTable(cat, id, *curr);
+		catp = &cat;
+#endif
+
+		if (location2 >= 0 && id == agent2_id) // Adding an edge constraint for the second agent - the constraint will
+											   // be on traversing the edge in the opposite direction
 		{
-			LL_num_generated += n1->add_constraint(make_tuple(location1, -1, timestep, true));
-			LL_num_generated += n2->add_constraint(make_tuple(location1, -1, timestep, false));
-			if (propagation && max(num_singleton1, num_singleton2) > 1)
-			{
-				for (int i = timestep; i > 0; i--)
-				{
-					if (!paths[id]->at(i).buildMDD)
-						break;
-					else if (!paths[id]->at(i).single)
-						continue;
-					else if (paths[id]->at(i - 1).buildMDD && paths[id]->at(i - 1).single)
-						LL_num_generated += n1->add_constraint(make_tuple(paths[id]->at(i - 1).location, paths[id]->at(i).location, i, true));
-					else if (i < timestep && !paths[id]->at(i + 1).single)
-						LL_num_generated += n1->add_constraint(make_tuple(paths[id]->at(i).location, -1, i, true));
-				}
-			}
+			LL_num_generated += n1->add_constraint(make_tuple(location2, location1, timestep, true), catp);
+			LL_num_generated += n2->add_constraint(make_tuple(location2, location1, timestep, false), catp);
 		}
-		else //edge constraint 
+		else
 		{
-			if (id == agent1_id) // for first agent
-			{
-				LL_num_generated += n1->add_constraint(make_tuple(location1, location2, timestep, true));
-				LL_num_generated += n2->add_constraint(make_tuple(location1, location2, timestep, false));
-			}
-			else // for second agent
-			{
-				LL_num_generated += n1->add_constraint(make_tuple(location2, location1, timestep, true));
-				LL_num_generated += n2->add_constraint(make_tuple(location2, location1, timestep, false));
-			}
-			if (propagation && timestep - 1 > 1 && max(num_singleton1, num_singleton2) > 1)
-			{
-				for (int i = timestep - 1; i > 0; i--)
-				{
-					if (!paths[id]->at(i).buildMDD)
-						break;
-					else if (!paths[id]->at(i).single)
-						continue;
-					else if (paths[id]->at(i - 1).buildMDD && paths[id]->at(i - 1).single)
-						LL_num_generated += n1->add_constraint(make_tuple(paths[id]->at(i - 1).location, paths[id]->at(i).location, i, true));
-					else if (i < timestep - 1 && !paths[id]->at(i + 1).single)
-						LL_num_generated += n1->add_constraint(make_tuple(paths[id]->at(i).location, -1, i, true));
-				}
-			}
+			LL_num_generated += n1->add_constraint(make_tuple(location1, location2, timestep, true), catp);
+			LL_num_generated += n2->add_constraint(make_tuple(location1, location2, timestep, false), catp);
 		}
+
+		if (max(num_singletons_1, num_singletons_2) > 1)  // There are narrow levels in the agent's MDD
+			addPositiveConstraintsOnNarrowLevelsLeadingToPositiveConstraint(id, timestep, n1, n2, catp);
 	}
 	else if (split == split_strategy::WIDTH)
 	{
@@ -750,70 +784,56 @@ void ICBSSearch::branch(ICBSNode* curr, ICBSNode* n1, ICBSNode*n2)
 			id = agent1_id;
 		else
 			id = agent2_id;
+
 		n1->agent_id = id;
 		n2->agent_id = id;
-		if (location2 < 0) // vertex conflict
+		std::vector<std::unordered_map<int, AvoidanceState>>* catp = nullptr;
+#ifndef LPA
+#else
+		// build a conflict-avoidance table for the agent we'll constrain
+		std::vector < std::unordered_map<int, AvoidanceState > > cat(curr->makespan + 1);
+		buildConflictAvoidanceTable(cat, id, *curr);
+		catp = &cat;
+#endif
+
+		if (location2 >= 0 && id == agent2_id) // Adding an edge constraint for the second agent - the constraint will
+											   // be on traversing the edge in the opposite direction
 		{
-			LL_num_generated += n1->add_constraint(make_tuple(location1, location2, timestep, true));
-			LL_num_generated += n2->add_constraint(make_tuple(location1, location2, timestep, false));
-			if (propagation && timestep < paths[id]->size())
-			{
-				for (int i = timestep; i > 0; i--)
-				{
-					if (!paths[id]->at(i).buildMDD)
-						break;
-					else if (!paths[id]->at(i).single)
-						continue;
-					else if (paths[id]->at(i - 1).buildMDD && paths[id]->at(i - 1).single)
-						LL_num_generated += n1->add_constraint(make_tuple(paths[id]->at(i - 1).location, paths[id]->at(i).location, i, true));
-					else if (i < timestep && !paths[id]->at(i + 1).single)
-						LL_num_generated += n1->add_constraint(make_tuple(paths[id]->at(i).location, -1, i, true));
-				}
-			}
+			LL_num_generated += n1->add_constraint(make_tuple(location2, location1, timestep, true), catp);
+			LL_num_generated += n2->add_constraint(make_tuple(location2, location1, timestep, false), catp);
 		}
-		else //edge constraint 
+		else
 		{
-			if (id == agent1_id) // for first agent
-			{
-				LL_num_generated += n1->add_constraint(make_tuple(location1, location2, timestep, true));
-				LL_num_generated += n2->add_constraint(make_tuple(location1, location2, timestep, false));
-			}
-			else // for second agent
-			{
-				LL_num_generated += n1->add_constraint(make_tuple(location2, location1, timestep, true));
-				LL_num_generated += n2->add_constraint(make_tuple(location2, location1, timestep, false));
-			}
-			if (propagation && timestep > 1 && timestep < paths[id]->size())
-			{
-				for (int i = timestep - 1; i > 0; i--)
-				{
-					if (!paths[id]->at(i).buildMDD)
-						break;
-					else if (!paths[id]->at(i).single)
-						continue;
-					else if (paths[id]->at(i - 1).buildMDD && paths[id]->at(i - 1).single)
-						LL_num_generated += n1->add_constraint(make_tuple(paths[id]->at(i - 1).location, paths[id]->at(i).location, i, true));
-					else if (i < timestep - 1 && !paths[id]->at(i + 1).single)
-						LL_num_generated += n1->add_constraint(make_tuple(paths[id]->at(i).location, -1, i, true));
-				}
-			}
-		}
-	}
-	else
-	{
-		n1->agent_id = get<0>(*curr->conflict);
-		n2->agent_id = get<1>(*curr->conflict);
-		if (get<3>(*curr->conflict) < 0) // vertex conflict
-		{
-			LL_num_generated += n1->add_constraint(make_tuple(get<2>(*curr->conflict), -1, get<4>(*curr->conflict), false));
-			LL_num_generated += n2->add_constraint(make_tuple(get<2>(*curr->conflict), -1, get<4>(*curr->conflict), false));
-		}
-		else // edge conflict
-		{
-			LL_num_generated += n1->add_constraint(make_tuple(get<2>(*curr->conflict), get<3>(*curr->conflict), get<4>(*curr->conflict), false));
-			LL_num_generated += n2->add_constraint(make_tuple(get<3>(*curr->conflict), get<2>(*curr->conflict), get<4>(*curr->conflict), false));
+			LL_num_generated += n1->add_constraint(make_tuple(location1, location2, timestep, true), catp);
+			LL_num_generated += n2->add_constraint(make_tuple(location1, location2, timestep, false), catp);
 		}
 
+		addPositiveConstraintsOnNarrowLevelsLeadingToPositiveConstraint(id, timestep, n1, n2, catp);
+	}
+	else  // Do a non-disjoint split
+	{
+		n1->agent_id = agent1_id;
+		n2->agent_id = agent2_id;
+
+		std::vector<std::unordered_map<int, AvoidanceState>>* catp1 = nullptr;
+		std::vector<std::unordered_map<int, AvoidanceState>>* catp2 = nullptr;
+#ifndef LPA
+#else
+		// build conflict-avoidance tables for the agents we'll constrain
+		std::vector < std::unordered_map<int, AvoidanceState > > cat1(curr->makespan + 1);
+		std::vector < std::unordered_map<int, AvoidanceState > > cat2(curr->makespan + 1);
+		buildConflictAvoidanceTable(cat1, agent1_id, *curr);
+		buildConflictAvoidanceTable(cat2, agent2_id, *curr);
+		catp1 = &cat1;
+		catp2 = &cat2;
+#endif
+
+		LL_num_generated += n1->add_constraint(make_tuple(location1, location2, timestep, false), catp1);
+		if (location2 >= 0) // Adding an edge constraint for the second agent - the constraint will
+							// be on traversing the edge in the opposite direction
+			LL_num_generated += n2->add_constraint(make_tuple(location2, location1, timestep, false), catp2);
+		else
+			LL_num_generated += n2->add_constraint(make_tuple(location1, location2, timestep, false), catp2);
 	}
 }
 
@@ -982,7 +1002,7 @@ bool ICBSSearch::findPathForSingleAgent(ICBSNode* node, int ag, int timestep, in
 	int lastGoalConTimestep = buildConstraintTable(curr, ag, timestep, cons_table, start, goal);
 	
 	// build reservation table
-	std::vector < std::unordered_map<int, ConstraintState > > cat(node->makespan + 1);
+	std::vector < std::unordered_map<int, AvoidanceState > > cat(node->makespan + 1);
 	buildConflictAvoidanceTable(cat, ag, *node);
 	
 	// find a path w.r.t cons_vec (and prioritize by res_table).
@@ -991,6 +1011,7 @@ bool ICBSSearch::findPathForSingleAgent(ICBSNode* node, int ag, int timestep, in
 	newPath.second = *paths[ag];
 	bool foundSol;
 
+	// TODO: Pass the timeout to the low level
 	if (goal.second  >= paths[ag]->size())
 	{
 #ifndef LPA
@@ -1004,7 +1025,7 @@ bool ICBSSearch::findPathForSingleAgent(ICBSNode* node, int ag, int timestep, in
 			if (screen)
 				cout << "Calling LPA* again for agent " << ag << endl;
 			int generated_before = node->lpas[ag]->allNodes_table.size();
-			foundSol = node->lpas[ag]->findPath();
+			foundSol = node->lpas[ag]->findPath(cat, lowerbound, lastGoalConTimestep);
 			if (foundSol) {
 				const vector<int> *primitive_path = node->lpas[ag]->getPath(node->lpas[ag]->paths.size() - 1);
 				newPath.second.resize(primitive_path->size());
@@ -1118,15 +1139,16 @@ bool ICBSSearch::isPathsConsistentWithConstraints(ICBSNode* curr) const
 	{
 		for (auto con : curr->constraints)
 		{
-			if (get<3>(con)) // positive constraint
+			auto [loc1, loc2, timestep, positive_constraint] = con;
+			if (positive_constraint)
 			{
 				for (int i = 0; i < num_of_agents; i++)
 				{
 					if (i == curr->agent_id)
 					{
-						if (get<1>(con) < 0) // vertex constraint
+						if (loc2 < 0) // vertex constraint
 						{
-							if (get<2>(con) < paths[i]->size() && paths[i]->at(get<2>(con)).location != get<0>(con))
+							if (timestep < paths[i]->size() && paths[i]->at(timestep).location != loc1)
 							{
 								std::cout << "Path " << i << " violates constraint " << con << std::endl;
 								exit(1);
@@ -1134,20 +1156,24 @@ bool ICBSSearch::isPathsConsistentWithConstraints(ICBSNode* curr) const
 						}
 						else // edge constraint
 						{
-							if (get<2>(con) < paths[i]->size() && paths[i]->at(get<2>(con) - 1).location != get<0>(con) ||
-									paths[i]->at(get<2>(con)).location != get<1>(con))
+							if (timestep < paths[i]->size() &&
+								(paths[i]->at(timestep - 1).location != loc1 ||
+								 paths[i]->at(timestep).location != loc2))
 							{
 								std::cout << "Path " << i << " violates constraint " << con << std::endl;
 								exit(1);
 							}
 						}
 					}
-					else
+					else  // The positive constraint is on a different agent - an implicit negative constraint for this agent
 					{
-						if (get<2>(con) >= paths[i]->size());
-						else if (get<1>(con) < 0) // vertex constraint
+						if (timestep >= paths[i]->size())
 						{
-							if (paths[i]->at(get<2>(con)).location == get<0>(con))
+							// Nothing to do
+						}
+						else if (loc2 < 0) // vertex constraint
+						{
+							if (paths[i]->at(timestep).location == loc1)
 							{
 								std::cout << "Path " << i << " violates constraint " << con << std::endl;
 								exit(1);
@@ -1155,9 +1181,9 @@ bool ICBSSearch::isPathsConsistentWithConstraints(ICBSNode* curr) const
 						}
 						else // edge constraint
 						{
-							if ((paths[i]->at(get<2>(con) - 1).location == get<1>(con) && paths[i]->at(get<2>(con)).location == get<0>(con)) ||
-								paths[i]->at(get<2>(con) - 1).location == get<0>(con) ||
-								paths[i]->at(get<2>(con)).location == get<1>(con))
+							if ((paths[i]->at(timestep - 1).location == loc2 && paths[i]->at(timestep).location == loc1) ||
+								 paths[i]->at(timestep - 1).location == loc1 ||
+								 paths[i]->at(timestep).location == loc2)
 							{
 								std::cout << "Path " << i << " violates constraint " << con << std::endl;
 								exit(1);
@@ -1168,14 +1194,14 @@ bool ICBSSearch::isPathsConsistentWithConstraints(ICBSNode* curr) const
 			}
 			else // negative constraint
 			{
-				if (get<1>(con) < 0) // vertex constraint
+				if (loc2 < 0) // vertex constraint
 				{
-					if (paths[curr->agent_id]->size() > get<2>(con) && paths[curr->agent_id]->at(get<2>(con)).location == get<0>(con))
+					if (paths[curr->agent_id]->size() > timestep && paths[curr->agent_id]->at(timestep).location == loc1)
 					{
 						std::cout << "Path " << curr->agent_id << " violates constraint " << con << std::endl;
 						exit(1);
 					}
-					else if (paths[curr->agent_id]->size() <= get<2>(con) && paths[curr->agent_id]->back().location == get<0>(con))
+					else if (paths[curr->agent_id]->size() <= timestep && paths[curr->agent_id]->back().location == loc1)
 					{
 						std::cout << "Path " << curr->agent_id << " violates constraint " << con << std::endl;
 						exit(1);
@@ -1183,7 +1209,7 @@ bool ICBSSearch::isPathsConsistentWithConstraints(ICBSNode* curr) const
 				}
 				else // edge constraint
 				{
-					if (paths[curr->agent_id]->at(get<2>(con) - 1).location == get<0>(con) && paths[curr->agent_id]->at(get<2>(con)).location == get<1>(con))
+					if (paths[curr->agent_id]->at(timestep - 1).location == loc1 && paths[curr->agent_id]->at(timestep).location == loc2)
 					{
 						std::cout << "Path " << curr->agent_id << " violates constraint " << con << std::endl;
 						exit(1);
@@ -1302,7 +1328,7 @@ void ICBSSearch::updateFocalList(double old_lower_bound, double new_lower_bound,
 	}
 }
 
-// Reinset a node to OPEN (and FOCAL if needed) because of the lazy heuristics
+// Reinsert a node to OPEN (and FOCAL if needed) because of the lazy heuristics
 bool ICBSSearch::reinsert(ICBSNode* curr)
 {
 	if (curr->f_val > focal_list_threshold)
@@ -1503,33 +1529,31 @@ bool ICBSSearch::runICBSSearch()
 
 		if (split == split_strategy::DISJOINT3)
 		{
-			ICBSNode* n1 = new ICBSNode(curr);
-			ICBSNode* n2 = new ICBSNode(curr);
-			ICBSNode* n3 = new ICBSNode(curr);
-			int agent1_id, agent2_id, location1, location2, timestep;
-			tie(agent1_id, agent2_id, location1, location2, timestep) = *curr->conflict;
-			n1->agent_id = get<0>(*curr->conflict);
-			n2->agent_id = get<1>(*curr->conflict);
-			n3->agent_id = (1 + get<0>(*curr->conflict)) * num_of_agents + get<1>(*curr->conflict);
-			if (get<3>(*curr->conflict) < 0) // vertex conflict
-			{
-				LL_num_generated += n1->add_constraint(make_tuple(get<2>(*curr->conflict), -1, get<4>(*curr->conflict), true));
-				LL_num_generated += n2->add_constraint(make_tuple(get<2>(*curr->conflict), -1, get<4>(*curr->conflict), true));
-				LL_num_generated += n3->add_constraint(make_tuple(get<2>(*curr->conflict), -1, get<4>(*curr->conflict), false));
-			}
-			else // edge conflict
-			{
-				LL_num_generated += n1->add_constraint(make_tuple(get<2>(*curr->conflict), get<3>(*curr->conflict), get<4>(*curr->conflict), true));
-				LL_num_generated += n2->add_constraint(make_tuple(get<3>(*curr->conflict), get<2>(*curr->conflict), get<4>(*curr->conflict), true));
-				LL_num_generated += n3->add_constraint(make_tuple(get<2>(*curr->conflict), get<3>(*curr->conflict), get<4>(*curr->conflict), false));
-			}
-			bool Sol1 = false, Sol2 = false, Sol3 = false;
-			vector<vector<PathEntry>*> copy(paths);
-			Sol1 = generateChild(n1);
-			paths = copy;
-			Sol2 = generateChild(n2);
-			paths = copy;
-			Sol3 = generateChild(n3);
+//			ICBSNode* n1 = new ICBSNode(curr);
+//			ICBSNode* n2 = new ICBSNode(curr);
+//			ICBSNode* n3 = new ICBSNode(curr);
+//			auto [agent1_id, agent2_id, location1, location2, timestep] = *curr->conflict;
+//			n1->agent_id = agent1_id;
+//			n2->agent_id = agent2_id;
+//			n3->agent_id = (1 + agent1_id) * num_of_agents + agent2_id;
+//			if (location2 < 0) // vertex conflict
+//			{
+//				LL_num_generated += n1->add_constraint(make_tuple(location1, -1, timestep, true));
+//				LL_num_generated += n2->add_constraint(make_tuple(location1, -1, timestep, true));
+//				LL_num_generated += n3->add_constraint(make_tuple(location1, -1, timestep, false));
+//			}
+//			else // edge conflict
+//			{
+//				LL_num_generated += n1->add_constraint(make_tuple(location1, location2, timestep, true));
+//				LL_num_generated += n2->add_constraint(make_tuple(location2, location1, timestep, true));
+//				LL_num_generated += n3->add_constraint(make_tuple(location1, location2, timestep, false));
+//			}
+//			vector<vector<PathEntry>*> copy(paths);
+//			bool Sol1 = generateChild(n1);
+//			paths = copy;
+//			bool Sol2 = generateChild(n2);
+//			paths = copy;
+//			bool Sol3 = generateChild(n3);
 		}
 		else
 		{
@@ -1654,7 +1678,7 @@ ICBSSearch::ICBSSearch(const MapLoader& ml, const AgentsLoader& al, double focal
 	paths.resize(num_of_agents, NULL);
 	paths_found_initially.resize(num_of_agents);
 	std::vector < std::unordered_map<int, ConstraintState > > cons_table;
-	std::vector < std::unordered_map<int, ConstraintState > > cat(root_node->makespan + 1);
+	std::vector < std::unordered_map<int, AvoidanceState > > cat(root_node->makespan + 1);
 	for (int i = 0; i < num_of_agents; i++) 
 	{
 		pair<int, int> start(search_engines[i]->start_location, 0);
@@ -1670,10 +1694,9 @@ ICBSSearch::ICBSSearch(const MapLoader& ml, const AgentsLoader& al, double focal
 #ifndef LPA
 		if (search_engines[i]->findShortestPath(paths_found_initially[i], cons_table, cat, start, goal, 0, -1) == false)
 #else
-		// FIXME: currently ignoring the CAT
 		if (screen)
 			cout << "Calling LPA* for the first time for agent " << i << endl;
-		if (root_node->lpas[i]->findPath() == false)
+		if (root_node->lpas[i]->findPath(cat, -1, -1) == false)
 #endif
 		{
 			cout << "NO SOLUTION EXISTS FOR AGENT " << i;

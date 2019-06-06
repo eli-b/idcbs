@@ -38,11 +38,11 @@ public:
 	 // path finding
 	bool findPath(vector<PathEntry> &path,
 		const std::vector < std::unordered_map<int, ConstraintState > >& cons_table, 
-		const std::vector < std::unordered_map<int, ConstraintState > >& cat,
+		const std::vector < std::unordered_map<int, AvoidanceState > >& cat,
 		const pair<int, int> &start, const pair<int, int>&goal, lowlevel_hval h_type);
 	bool findShortestPath(vector<PathEntry> &path, 
 		const std::vector < std::unordered_map<int, ConstraintState > >& cons_table,
-		const std::vector < std::unordered_map<int, ConstraintState > >& cat,
+		const std::vector < std::unordered_map<int, AvoidanceState > >& cat,
 		const pair<int, int> &start, const pair<int, int>&goal, int earliestGoalTimestep, int lastGoalConsTime);
 	
 	// tools
@@ -50,8 +50,6 @@ public:
 	bool isConstrained(int direction, int next_id, int next_timestep,
 		const std::vector < std::unordered_map<int, ConstraintState > >& cons_table)  const;
 	void updatePath(const ICBSSingleAgentLLNode* goal, vector<PathEntry> &path); 
-	int numOfConflictsForStep(int curr_id, int next_id, int next_timestep, 
-		const std::vector < std::unordered_map<int, ConstraintState > >& cat);
 	int getDifferentialHeuristic(int loc1, int loc2) const;
 	inline void releaseClosedListNodes(hashtable_t& allNodes_table);
 
@@ -60,4 +58,3 @@ public:
 	~ICBSSingleAgentLLSearch();
 
 };
-

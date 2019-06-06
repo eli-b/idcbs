@@ -16,6 +16,8 @@
       <change afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
       <change afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
       <change afterPath="$PROJECT_DIR$/run.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/conflict_avoidance_table.cpp" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/conflict_avoidance_table.h" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/ICBSNode.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/ICBSNode.cpp" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/ICBSNode.h" beforeDir="false" afterPath="$PROJECT_DIR$/ICBSNode.h" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/ICBSSearch.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/ICBSSearch.cpp" afterDir="false" />

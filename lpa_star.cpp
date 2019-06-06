@@ -8,6 +8,7 @@
 #include <sparsehash/dense_hash_map>
 #include "lpa_node.h"
 #include "g_logging.h"
+#include "conflict_avoidance_table.h"
 
 using google::dense_hash_map;
 using std::cout;
@@ -98,7 +99,7 @@ bool LPAStar::updatePath(LPANode* goal) {
 
 
 // ----------------------------------------------------------------------------
-void LPAStar::addVertexConstraint(int loc_id, int ts) {
+void LPAStar::addVertexConstraint(int loc_id, int ts, const std::vector < std::unordered_map<int, AvoidanceState > >& cat) {
   VLOG_IF(1, ts == 0) << "We assume vertex constraints cannot happen at timestep 0.";
   // 1) Invalidate this node (that is, sets bp_=nullptr, g=INF, v=INF) and remove from OPEN.
   LPANode* n = retrieveNode(loc_id, ts).second;
@@ -111,8 +112,8 @@ void LPAStar::addVertexConstraint(int loc_id, int ts) {
     auto succ_loc_id = loc_id + actions_offset[direction];
     if (0 <= succ_loc_id && succ_loc_id < map_rows*map_cols && !my_map[succ_loc_id] &&
         abs(succ_loc_id % map_cols - loc_id % map_cols) < 2) {
-      addEdgeConstraint(loc_id, succ_loc_id, ts+1);
-      addEdgeConstraint(succ_loc_id, loc_id, ts);
+      addEdgeConstraint(loc_id, succ_loc_id, ts+1, cat);
+      addEdgeConstraint(succ_loc_id, loc_id, ts, cat);
     }
   }
 }
@@ -120,11 +121,11 @@ void LPAStar::addVertexConstraint(int loc_id, int ts) {
 
 
 // ----------------------------------------------------------------------------
-void LPAStar::addEdgeConstraint(int from_id, int to_id, int ts) {
+void LPAStar::addEdgeConstraint(int from_id, int to_id, int ts, const std::vector < std::unordered_map<int, AvoidanceState > >& cat) {
   dcm.addEdgeConstraint(from_id, to_id, ts);
   LPANode* to_n = retrieveNode(to_id, ts).second;
   if (to_n->bp_ != nullptr && to_n->bp_->loc_id_ == from_id) {
-    updateState(to_n, false);
+    updateState(to_n, cat, false);
   }
 }
 // ----------------------------------------------------------------------------
@@ -246,20 +247,23 @@ inline LPANode* LPAStar::retrieveMinPred(LPANode* n) {
 // note -- we assume that n was visited (/generated) via a call to retrieveNode earlier
 // note2 -- parameter bp_already_set used for optimization (section 6 of the LPA* paper).
 // ----------------------------------------------------------------------------
-inline void LPAStar::updateState(LPANode* n, bool bp_already_set) {
+inline void LPAStar::updateState(LPANode* n, const std::vector < std::unordered_map<int, AvoidanceState > >& cat,
+                                 bool bp_already_set) {
   if (n != start_n) {
     VLOG(7) << "\t\tupdateState: Start working on " << n->nodeString();
     if (bp_already_set == false) {
         n->bp_ = retrieveMinPred(n);
         if (n->bp_ == nullptr) {  // This node is a "dead-end" or has a vertex constraint on it.
             n->initState();
-            if (n->in_openlist_ == true) {
+            if (n->in_openlist_) {
                 openlistRemove(n);
             }
             return;
         }
     }
     n->g_ = (n->bp_)->v_ + 1;  // If we got to this point this traversal is legal (Assumes edges have unit cost).
+    int n_conflicts = numOfConflictsForStep(n->bp_->loc_id_, n->loc_id_, n->t_, cat, actions_offset);
+    n->conflicts_ = (n->bp_)->conflicts_ + n_conflicts;
     VLOG(7) << "\t\tupdateVertex: After updating bp -- " << n->nodeString();
     // UpdateVertex from the paper:
     if ( !n->isConsistent() ) {
@@ -271,7 +275,7 @@ inline void LPAStar::updateState(LPANode* n, bool bp_already_set) {
         VLOG(7) << "\t\t\tand *UPDATED* in OPEN";
       }
     } else {  // n is consistent
-      if (n->in_openlist_ == true) {
+      if (n->in_openlist_) {
         openlistRemove(n);
         VLOG(7) << "\t\t\tand *REMOVED* from OPEN";
       }
@@ -289,7 +293,7 @@ inline void LPAStar::updateState(LPANode* n, bool bp_already_set) {
 
 
 // ----------------------------------------------------------------------------
-bool LPAStar::findPath() {
+bool LPAStar::findPath(const std::vector < std::unordered_map<int, AvoidanceState > >& cat, int fLowerBound, int minTimestep) {
 
   search_iterations++;
   num_expanded.push_back(0);
@@ -313,20 +317,20 @@ bool LPAStar::findPath() {
             if (next_n.second->g_ > curr->v_ + 1) {
                 next_n.second->bp_ = curr;
                 //next_n.second->g_ = curr->v_ + 1;  // Done in updateState
-                updateState(next_n.second, true);
+                updateState(next_n.second, cat, true);
             }
         }
       }
     } else {  // Underconsistent (v<g).
       VLOG(7) << "(it is *under*consistent)";
       curr->v_ = std::numeric_limits<float>::max();
-      updateState(curr);
+      updateState(curr, cat);
       for (int direction = 0; direction < 5; direction++) {
         auto next_loc_id = curr->loc_id_ + actions_offset[direction];
         if (0 <= next_loc_id && next_loc_id < map_rows*map_cols && !my_map[next_loc_id] &&
             abs(next_loc_id % map_cols - curr->loc_id_ % map_cols) < 2) {
           auto next_n = retrieveNode(next_loc_id, curr->t_+1);
-          updateState(next_n.second, false);
+          updateState(next_n.second, cat, false);
         }
       }
     }
@@ -366,37 +370,37 @@ map_cols(other.map_cols),
 actions_offset(other.actions_offset),
 dcm(other.dcm)
 {
-  search_iterations = 0;
-  num_expanded.push_back(0);
-  paths.push_back(vector<int>());
-  paths_costs.push_back(0);
-  expandedHeatMap.push_back(vector<int>());
-  empty_node = new LPANode(*(other.empty_node));
-  deleted_node = new LPANode(*(other.deleted_node));
-  // Create a deep copy of each node and store it in the new Hash table.
-  allNodes_table.set_empty_key(empty_node);
-  allNodes_table.set_deleted_key(deleted_node);
-  // Map
-  for (auto n : other.allNodes_table) {
-    allNodes_table[n.first] = new LPANode(*(n.second));  // n is std::pair<Key, Data*>.
-  }
-  // Reconstruct the OPEN list with the cloned nodes.
-  // This is efficient enough since FibHeap has amortized constant time insert.
-  for (auto it = other.open_list.ordered_begin(); it != other.open_list.ordered_end(); ++it) {
-    LPANode* n = allNodes_table[*it];
-    n->openlist_handle_ = open_list.push(n);
-  }
-  // Update the backpointers of all cloned versions.
-  // (before this its bp_ is the original pointer, but we can use the state in it to
-  // retrieve the new clone from the newly built hash table).
-  for (auto n : allNodes_table) {
-    if (n.second->bp_ != nullptr) {
-      n.second->bp_ = allNodes_table[n.second->bp_];
+    search_iterations = 0;
+    num_expanded.push_back(0);
+    paths.push_back(vector<int>());
+    paths_costs.push_back(0);
+    expandedHeatMap.push_back(vector<int>());
+    empty_node = new LPANode(*(other.empty_node));
+    deleted_node = new LPANode(*(other.deleted_node));
+    // Create a deep copy of each node and store it in the new Hash table.
+    allNodes_table.set_empty_key(empty_node);
+    allNodes_table.set_deleted_key(deleted_node);
+    // Map
+    for (auto n : other.allNodes_table) {
+        allNodes_table[n.first] = new LPANode(*(n.second));  // n is std::pair<Key, Data*>.
     }
-  }
-  // Update start and goal nodes.
-  start_n = allNodes_table[other.start_n];
-  goal_n = allNodes_table[other.goal_n];
+    // Reconstruct the OPEN list with the cloned nodes.
+    // This is efficient enough since FibHeap has amortized constant time insert.
+    for (auto it = other.open_list.ordered_begin(); it != other.open_list.ordered_end(); ++it) {
+        LPANode* n = allNodes_table[*it];
+        n->openlist_handle_ = open_list.push(n);
+    }
+    // Update the backpointers of all cloned versions.
+    // (before this its bp_ is the original pointer, but we can use the state in it to
+    // retrieve the new clone from the newly built hash table).
+    for (auto n : allNodes_table) {
+        if (n.second->bp_ != nullptr) {
+            n.second->bp_ = allNodes_table[n.second->bp_];
+        }
+    }
+    // Update start and goal nodes.
+    start_n = allNodes_table[other.start_n];
+    goal_n = allNodes_table[other.goal_n];
 }
 // ----------------------------------------------------------------------------
 

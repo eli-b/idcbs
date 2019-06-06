@@ -42,24 +42,25 @@ void ICBSNode::clear()
 #endif
 }
 
-int ICBSNode::add_constraint(const Constraint& constraint)
+int ICBSNode::add_constraint(const Constraint& constraint, const std::vector < std::unordered_map<int, AvoidanceState > >* cat)
 {
 	constraints.push_back(constraint);
 #ifndef LPA
 	return 0;
 #else
+    auto [loc1, loc2, timestep, positive_constraint] = constraint;
     if (lpas[agent_id] != nullptr) {
         lpas[agent_id] = new LPAStar(*lpas[agent_id]);
         int generated_before = lpas[agent_id]->allNodes_table.size();
-        if (get<3>(constraint) == false)  // negative constraint
+        if (positive_constraint == false)  // negative constraint
         {
-            if (get<1>(constraint) == -1)
-                lpas[agent_id]->addVertexConstraint(get<0>(constraint), get<2>(constraint));
+            if (loc2 == -1)  // vertex constraint
+                lpas[agent_id]->addVertexConstraint(loc1, timestep, *cat);
             else
-                lpas[agent_id]->addEdgeConstraint(get<0>(constraint), get<1>(constraint), get<2>(constraint));
+                lpas[agent_id]->addEdgeConstraint(loc1, loc2, timestep, *cat);
         }
         return lpas[agent_id]->allNodes_table.size() - generated_before;
-    } else
+    } else  // Replanning for the other agents when a positive constraint is added happens elsewhere
         return 0;
 #endif
 }

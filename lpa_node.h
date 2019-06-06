@@ -18,11 +18,12 @@ using boost::heap::compare;
 class LPANode {
  public:
   int loc_id_ = -1;
-  float g_ = std::numeric_limits<float>::max();
-  float v_ = std::numeric_limits<float>::max();
+  float g_ = std::numeric_limits<float>::max();  // computed from the v values of the predecessors of this node, potentially better informed - FIXME: actually the rhs from the paper??
+  float v_ = std::numeric_limits<float>::max();  // cost of the best path from start to this node during the previous search. - FIXME: actually the g from the paper??
   float h_ = 0;
-  LPANode* bp_ = nullptr;
+  LPANode* bp_ = nullptr;  // The best predecessor, if found, in terms of v(pred)+c(pred,this)
   int t_ = -1;
+  int conflicts_ = 0;
   int num_internal_conf_ = 0;  // used in ECBS and iECBS
   bool in_openlist_ = false;  // *not* used in Focal Search (reexpansions are required)
   bool is_truncated_ = false;  // used in TLPA*
@@ -30,7 +31,7 @@ class LPANode {
   std::list<LPANode*> pi_;  // used in TLPA*
 
   ///////////////////////////////////////////////////////////////////////////////
-  // NOTE -- Normally, compare_node (lhs,rhs) suppose to return true if lhs<rhs.
+  // NOTE -- Normally, compare_node (lhs,rhs) is supposed to return true if lhs<rhs.
   //         However, Heaps in STL and Boost are implemented as max-Heap.
   //         Hence, to achieve min-Heap, we return true if lhs>=rhs
   ///////////////////////////////////////////////////////////////////////////////
@@ -39,9 +40,12 @@ class LPANode {
   struct compare_node {
     // returns true if n1 > n2
     bool operator()(const LPANode* n1, const LPANode* n2) const {
-      if ( n1->getKey1() == n2->getKey1() )
-        return n1->getKey2() >= n2->getKey2();  // break ties towards *lower* g-vals
-      return n1->getKey1() >= n2->getKey1();
+      if ( n1->getKey1() == n2->getKey1() ) {
+          if ( n1->getKey2() == n2->getKey2() )
+              return n1->getKey3() > n2->getKey3();  // break ties towards *lower* g-vals and lower number of conflicts
+          return n1->getKey2() > n2->getKey2();  // break ties towards *lower* g-vals
+      }
+      return n1->getKey1() > n2->getKey1();
     }
   };
 
@@ -80,6 +84,8 @@ class LPANode {
   inline float getKey1() const {return std::min(g_, v_) + h_;}
 
   inline float getKey2() const {return std::min(g_, v_);}
+
+  inline float getKey3() const {return this->conflicts_;}
 
   inline void initState() {
     g_ = std::numeric_limits<float>::max();

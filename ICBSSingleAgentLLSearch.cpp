@@ -1,4 +1,5 @@
 #include "ICBSSingleAgentLLSearch.h"
+#include "conflict_avoidance_table.h"
 
 
 // Updates the path.
@@ -67,8 +68,8 @@ int ICBSSingleAgentLLSearch::extractLastGoalTimestep(int goal_location, const ve
 }
 
 
-// Checks if a valid path found (wrt my_map and constraints)
-// input: curr_id (location at time next_timestep-1) ; next_id (location at time next_timestep); next_timestep
+// Checks if a move into next_id at next_timestepfrom direction is valid (wrt my_map and constraints)
+// input: direction (into next_id) ; next_id (location at time next_timestep); next_timestep
 // cons[timestep] is a list of <loc1,loc2, bool> of (vertex/edge) constraints for that timestep. (loc2=-1 for vertex constraint).
 bool ICBSSingleAgentLLSearch::isConstrained(int direction, int next_id, int next_timestep,
 	const std::vector < std::unordered_map<int, ConstraintState > >& cons_table)  const 
@@ -86,40 +87,6 @@ bool ICBSSingleAgentLLSearch::isConstrained(int direction, int next_id, int next
 		return false;
 }
 
-// Return the number of conflicts between the known_paths' (by looking at the reservation table) for the move [curr_id,next_id].
-// Returns 0 if no conflict, 1 for vertex or edge conflict, 2 for both.
-int ICBSSingleAgentLLSearch::numOfConflictsForStep(int curr_id, int next_id, int next_timestep, const std::vector < std::unordered_map<int, ConstraintState > >& cat )
-{
-	int retVal = 0;
-	if (next_timestep >= cat.size()) 
-	{
-		// check vertex constraints (being at an agent's goal when he stays there because he is done planning)
-		auto it = cat.back().find(next_id);
-		if (it != cat.back().end() && it->second.vertex)
-			retVal++;
-		// Note -- there cannot be edge conflicts when other agents are done moving
-	}
-	else 
-	{
-		// check vertex constraints (being in next_id at next_timestep is disallowed)
-		auto it = cat[next_timestep].find(next_id);
-		if (it != cat[next_timestep].end())
-		{
-			if (it->second.vertex)
-				retVal++;
-			// check edge constraints (the move from curr_id to next_id at next_timestep-1 is disallowed)
-			for (int i = 0; i < MapLoader::WAIT_MOVE; i++) // i=0 is the wait action that cannot lead to edge conflict
-			{
-				if (next_id - curr_id == moves_offset[i] && it->second.edge[i])
-					retVal++;
-			}
-		}
-	}
-	return retVal;
-}
-
-
-
 // find a path from location start.first at timestep start.second to location goal.first at timestep goal.second
 // that satisfies all constraints in cons_table
 // while minimizing conflicts with paths in cat
@@ -129,7 +96,7 @@ int ICBSSingleAgentLLSearch::numOfConflictsForStep(int curr_id, int next_id, int
 // This is used to re-plan a (sub-)path between two positive constraints.
 bool ICBSSingleAgentLLSearch::findPath(vector<PathEntry> &path,
 	const std::vector < std::unordered_map<int, ConstraintState > >& cons_table,
-	const std::vector < std::unordered_map<int, ConstraintState > >& cat,
+	const std::vector < std::unordered_map<int, AvoidanceState > >& cat,
 	const pair<int, int> &start, const pair<int, int>&goal, lowlevel_hval h_type)
 {
 	num_expanded = 0;
@@ -179,7 +146,7 @@ bool ICBSSingleAgentLLSearch::findPath(vector<PathEntry> &path,
 				if (next_timestep + next_h_val > goal.second) // the node cannot reach the goal node at time goal.second
 					continue;
 				int next_internal_conflicts = curr->num_internal_conf +
-					numOfConflictsForStep(curr->loc, next_id, next_timestep, cat);
+					numOfConflictsForStep(curr->loc, next_id, next_timestep, cat, moves_offset);
 
 				// generate (maybe temporary) node
 				ICBSSingleAgentLLNode* next = new ICBSSingleAgentLLNode(next_id, next_g_val, next_h_val,	curr, 
@@ -221,7 +188,7 @@ bool ICBSSingleAgentLLSearch::findPath(vector<PathEntry> &path,
 // return true if a path was found (and update path) or false if no path exists
 bool ICBSSingleAgentLLSearch::findShortestPath(vector<PathEntry> &path,
 	const std::vector < std::unordered_map<int, ConstraintState > >& cons_table,
-	const std::vector < std::unordered_map<int, ConstraintState > >& cat,
+	const std::vector < std::unordered_map<int, AvoidanceState > >& cat,
 	const pair<int, int> &start, const pair<int, int>&goal, int earliestGoalTimestep, int lastGoalConsTime)
 {
 	num_expanded = 0;
@@ -271,7 +238,7 @@ bool ICBSSingleAgentLLSearch::findShortestPath(vector<PathEntry> &path,
 				int next_g_val = curr->g_val + 1;
 				int next_h_val = my_heuristic[next_id];
 				int next_internal_conflicts = curr->num_internal_conf + 
-					numOfConflictsForStep(curr->loc, next_id, next_timestep, cat);
+					numOfConflictsForStep(curr->loc, next_id, next_timestep, cat, moves_offset);
 				
 				// generate (maybe temporary) node
 				ICBSSingleAgentLLNode* next = new ICBSSingleAgentLLNode(next_id, next_g_val, next_h_val, curr, next_timestep, next_internal_conflicts, false);		

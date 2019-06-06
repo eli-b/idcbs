@@ -63,7 +63,7 @@ public:
 	focal_handle_t focal_handle;
 
 	// Returns the number of generated nodes
-	int add_constraint(const Constraint&);
+	int add_constraint(const Constraint&, const std::vector < std::unordered_map<int, AvoidanceState > >* cat);
 
 	void clear();
 

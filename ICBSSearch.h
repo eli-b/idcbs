@@ -12,7 +12,7 @@ public:
 	//settings
 	conflict_type conflictType;
 	split_strategy split;
-	bool propagation = false;
+	bool posConstraintsAlsoAddPosConstraintsOnMddNarrowLevelsLeadingToThem = false;
 	int screen = 0;
 	bool HL_heuristic;
 	double focal_w = 1.0;
@@ -86,11 +86,14 @@ private:
 	bool findPathForSingleAgent(ICBSNode*  node, int ag, int timestep, int earliestGoalTimestep = 0);
 	bool generateChild(ICBSNode* child);
 	bool findPaths(ICBSNode*  node);
-	void buildConflictAvoidanceTable(std::vector < std::unordered_map<int, ConstraintState > >& res_table, 
+	void buildConflictAvoidanceTable(std::vector < std::unordered_map<int, AvoidanceState > >& res_table,
 		int exclude_agent, const ICBSNode &node);
 	int  buildConstraintTable(ICBSNode* curr, int agent_id, int timestep, 
 		std::vector < std::unordered_map<int, ConstraintState > >& cons_table, pair<int, int>& start, pair<int, int>& goal);
-	void addPathToConflictAvoidanceTable(std::vector < std::unordered_map<int, ConstraintState > >& cat, int ag);
+	void addPathToConflictAvoidanceTable(std::vector < std::unordered_map<int, AvoidanceState > >& cat, int ag);
+	int countMddSingletons(int agent_id, int conflict_timestep);
+	int getTotalMddWidth(int agent_id);
+	void addPositiveConstraintsOnNarrowLevelsLeadingToPositiveConstraint(int agent_id, int timestep, ICBSNode* n1, ICBSNode* n2, const std::vector < std::unordered_map<int, AvoidanceState > >* cat);
 
 
 	// update

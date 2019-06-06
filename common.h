@@ -44,15 +44,19 @@ typedef std::tuple<int, int, int, bool> Constraint;
 std::ostream& operator<<(std::ostream& os, const Constraint& constraint);
 
 // <int agent1, int agent2, int loc1, int loc2, int timestep>
-// NOTE loc2 = -1 for vertex conflicts; loc2 = loation2 for edge conflicts
+// NOTE loc2 = -1 for vertex conflicts; loc2 = location2 for edge conflicts
 typedef std::tuple<int, int, int, int, int> Conflict;
 std::ostream& operator<<(std::ostream& os, const Conflict& conflict);
 
 
 struct ConstraintState
 {
-	bool vertex = false;
-	bool edge[5] = { false, false, false, false, false };
+    bool vertex = false;
+    bool edge[5] = { false, false, false, false, false };
 };
 
-
+struct AvoidanceState
+{
+    uint8_t vertex = 0;
+    uint8_t edge[5] = { 0, 0, 0, 0, 0 };
+};

@@ -80,6 +80,8 @@ class LPAStar {
 /* Releases all memory used by nodes stored in the hash table.
 */
   inline void releaseNodesMemory();
+
+
   inline void printAllNodesTable();
 
 
@@ -97,16 +99,16 @@ class LPAStar {
   inline void openlistRemove(LPANode* n);
   inline LPANode* openlistPopHead();
   inline LPANode* retrieveMinPred(LPANode* n);
-  inline void updateState(LPANode* n, bool bp_already_set=false);
+  inline void updateState(LPANode* n, const std::vector < std::unordered_map<int, AvoidanceState > >& cat, bool bp_already_set=false);
 
   // Vertex constraint semantics: being at loc_id at time ts is disallowed (hence, a move from it to any neighbor at ts is disallowed).
-  void addVertexConstraint(int loc_id, int ts);  // Also calls to updateState.
+  void addVertexConstraint(int loc_id, int ts, const std::vector < std::unordered_map<int, AvoidanceState > >& cat);  // Also calls updateState.
   // Edge constraint semantics: moving from from_id to to_id and arriving there at ts is disallowed.
-  void addEdgeConstraint(int from_id, int to_id, int ts);  // Also calls to updateState.
+  void addEdgeConstraint(int from_id, int to_id, int ts, const std::vector < std::unordered_map<int, AvoidanceState > >& cat);  // Also calls updateState.
 
   // Finds a new path, returns whether a solution was found
-  bool findPath();
-  
+  bool findPath(const std::vector < std::unordered_map<int, AvoidanceState > >& cat, int fLowerBound, int minTimestep);
+
   string openToString(bool print_priorities) const;
   LPAStar (const LPAStar& other);  // Copy ctor (deep copy).  When splitting this is needed
   ~LPAStar();  // Dtor.
