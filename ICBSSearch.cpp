@@ -9,12 +9,13 @@ int ICBSSearch::computeHeuristics(const ICBSNode& curr)
 	int num_of_CGnodes = 0, num_of_CGedges = 0;
 	for (int i = 0; i < num_of_agents; i++)
 		CG[i].resize(num_of_agents, false);
-	for (list<std::shared_ptr<tuple<int, int, int, int, int>>>::const_iterator it = curr.cardinalConf.begin(); it != curr.cardinalConf.end(); ++it)
+	for (list<std::shared_ptr<Conflict>>::const_iterator it = curr.cardinalConf.begin(); it != curr.cardinalConf.end(); ++it)
 	{
-		if (!CG[get<0>(**it)][get<1>(**it)])
+		auto [agent1, agent2, loc1, loc2, timestep] = **it;
+		if (!CG[agent1][agent2])
 		{
-			CG[get<0>(**it)][get<1>(**it)] = true;
-			CG[get<1>(**it)][get<0>(**it)] = true;
+			CG[agent1][agent2] = true;
+			CG[agent2][agent1] = true;
 			num_of_CGedges++;
 		}
 	}
@@ -304,7 +305,8 @@ void ICBSSearch::copyConflicts(const vector<bool>& unchanged,
 {
 	for (auto conflict : from)
 	{
-		if (unchanged[get<0>(*conflict)] && unchanged[get<1>(*conflict)])
+		auto [agent1, agent2, loc1, loc2, timestep] = *conflict;
+		if (unchanged[agent1] && unchanged[agent2])
 			to.push_back(conflict);
 	}
 }
@@ -312,7 +314,7 @@ void ICBSSearch::copyConflicts(const vector<bool>& unchanged,
 // find all conflict in the current solution
 void ICBSSearch::findConflicts(ICBSNode& curr)
 {
-	if (curr.parent != NULL) // not root node
+	if (curr.parent != nullptr) // not root node
 	{
 		// detect conflicts that occur on the new planed paths
 		vector<bool> detected(num_of_agents, false);
@@ -385,35 +387,36 @@ std::shared_ptr<Conflict> ICBSSearch::classifyConflicts(ICBSNode &parent)
 	while (!parent.unknownConf.empty())
 	{
 		std::shared_ptr<Conflict> con = parent.unknownConf.front();
+		auto [agent1, agent2, loc1, loc2, timestep] = *con;
 		parent.unknownConf.pop_front();
 
 		bool cardinal1, cardinal2;
-		if (get<3>(*con) >= 0) // Edge conflict
+		if (loc2 >= 0) // Edge conflict
 		{
-			buildMDD(parent, get<0>(*con), get<4>(*con));
-			buildMDD(parent, get<1>(*con), get<4>(*con));
-			buildMDD(parent, get<0>(*con), get<4>(*con) - 1);
-			buildMDD(parent, get<1>(*con), get<4>(*con) - 1);
-			cardinal1 = paths[get<0>(*con)]->at(get<4>(*con)).single && 
-				paths[get<0>(*con)]->at(get<4>(*con) - 1).single;
-			cardinal2 = paths[get<1>(*con)]->at(get<4>(*con)).single && 
-				paths[get<1>(*con)]->at(get<4>(*con) - 1).single;			
+			buildMDD(parent, agent1, timestep);
+			buildMDD(parent, agent2, timestep);
+			buildMDD(parent, agent1, timestep - 1);
+			buildMDD(parent, agent2, timestep - 1);
+			cardinal1 = paths[agent1]->at(timestep).single &&
+				paths[agent1]->at(timestep - 1).single;
+			cardinal2 = paths[agent2]->at(timestep).single &&
+				paths[agent2]->at(timestep - 1).single;
 		}
 		else // vertex conflict
 		{
-			if (get<4>(*con) >= paths[get<0>(*con)]->size())
+			if (timestep >= paths[agent1]->size())
 				cardinal1 = true;
 			else
 			{
-				buildMDD(parent, get<0>(*con), get<4>(*con));
-				cardinal1 = paths[get<0>(*con)]->at(get<4>(*con)).single;
+				buildMDD(parent, agent1, timestep);
+				cardinal1 = paths[agent1]->at(timestep).single;
 			}
-			if (get<4>(*con) >= paths[get<1>(*con)]->size())
+			if (timestep >= paths[agent2]->size())
 				cardinal2 = true;
 			else
 			{
-				buildMDD(parent, get<1>(*con), get<4>(*con));
-				cardinal2 = paths[get<1>(*con)]->at(get<4>(*con)).single;
+				buildMDD(parent, agent2, timestep);
+				cardinal2 = paths[agent2]->at(timestep).single;
 			}
 		}
 		if (cardinal1 && cardinal2)
@@ -480,28 +483,30 @@ std::shared_ptr<Conflict> ICBSSearch::getHighestPriorityConflict(const list<std:
 	{
 		for (auto conf : confs)
 		{
+			auto [agent1, agent2, loc1, loc2, timestep] = *conf;
+			auto [choice_agent1, choice_agent2, choice_loc1, choice_loc2, choice_timestep] = *choice;
 			int metric1 = 0;
 			int maxSingles = 0;
 			double minWidth = 0;
-			if (get<4>(*conf) < (int)paths[get<0>(*conf)]->size())
-				for (int j = 0; j< get<4>(*conf); j++)
-					if (paths[get<0>(*conf)]->at(j).buildMDD && paths[get<0>(*conf)]->at(j).single)
+			if (timestep < (int)paths[agent1]->size())
+				for (int j = 0; j < timestep; j++)
+					if (paths[agent1]->at(j).buildMDD && paths[agent1]->at(j).single)
 						metric1++;
 			int metric2 = 0;
-			if (get<4>(*conf) < (int)paths[get<1>(*conf)]->size())
-				for (int j = 0; j< get<4>(*conf); j++)
-					if (paths[get<1>(*conf)]->at(j).buildMDD && paths[get<1>(*conf)]->at(j).single)
+			if (timestep < (int)paths[agent2]->size())
+				for (int j = 0; j < timestep; j++)
+					if (paths[agent2]->at(j).buildMDD && paths[agent2]->at(j).single)
 						metric2++;
 			if (max(metric1, metric2) > metric[0])
 			{
 				choice = conf;
 				maxSingles = max(metric1, metric2);
-				minWidth = min(widthMDD[get<0>(*conf)], widthMDD[get<1>(*conf)]);
+				minWidth = min(widthMDD[agent1], widthMDD[agent2]);
 			}
-			else if (max(metric1, metric2) == maxSingles &&  min(widthMDD[get<0>(*conf)], widthMDD[get<1>(*conf)]) < minWidth)
+			else if (max(metric1, metric2) == maxSingles &&  min(widthMDD[agent1], widthMDD[agent2]) < minWidth)
 			{
 				choice = conf;
-				minWidth = min(widthMDD[get<0>(*conf)], widthMDD[get<1>(*conf)]);
+				minWidth = min(widthMDD[agent1], widthMDD[agent2]);
 			}
 		}
 	}
@@ -509,23 +514,25 @@ std::shared_ptr<Conflict> ICBSSearch::getHighestPriorityConflict(const list<std:
 	{
 		for (auto conf : confs)
 		{
+			auto [agent1, agent2, loc1, loc2, timestep] = *conf;
+			auto [choice_agent1, choice_agent2, choice_loc1, choice_loc2, choice_timestep] = *choice;
 			int w1, w2, w3, w4;
-			if (paths[get<0>(*conf)]->size() <= get<4>(*conf))
+			if (paths[agent1]->size() <= timestep)
 				w1 = 1;
 			else
-				w1 = paths[get<0>(*conf)]->at(get<4>(*conf)).numMDDNodes;
-			if (paths[get<1>(*conf)]->size() <= get<4>(*conf))
+				w1 = paths[agent1]->at(timestep).numMDDNodes;
+			if (paths[agent2]->size() <= timestep)
 				w2 = 1;
 			else
-				w2 = paths[get<1>(*conf)]->at(get<4>(*conf)).numMDDNodes;
-			if (paths[get<0>(*choice)]->size() <= get<4>(*choice))
+				w2 = paths[agent2]->at(timestep).numMDDNodes;
+			if (paths[choice_agent1]->size() <= choice_timestep)
 				w3 = 1;
 			else
-				w3 = paths[get<0>(*choice)]->at(get<4>(*choice)).numMDDNodes;
-			if (paths[get<1>(*choice)]->size() <= get<4>(*choice))
+				w3 = paths[choice_agent1]->at(choice_timestep).numMDDNodes;
+			if (paths[choice_agent2]->size() <= choice_timestep)
 				w4 = 1;
 			else
-				w4 = paths[get<1>(*choice)]->at(get<4>(*choice)).numMDDNodes;
+				w4 = paths[choice_agent2]->at(choice_timestep).numMDDNodes;
 			if (w1 * w2 < w3 * w4)
 				choice = conf;
 			else if (w1 * w2 == w3 * w4)
@@ -534,21 +541,21 @@ std::shared_ptr<Conflict> ICBSSearch::getHighestPriorityConflict(const list<std:
 				int single2 = 0;
 				int single3 = 0;
 				int single4 = 0;
-				if (get<4>(*conf) < (int)paths[get<0>(*conf)]->size())
-					for (int j = 0; j< get<4>(*conf); j++)
-						if (paths[get<0>(*conf)]->at(j).buildMDD && paths[get<0>(*conf)]->at(j).single)
+				if (timestep < (int)paths[agent1]->size())
+					for (int j = 0; j < timestep; j++)
+						if (paths[agent1]->at(j).buildMDD && paths[agent1]->at(j).single)
 							single1++;
-				if (get<4>(*conf) < (int)paths[get<1>(*conf)]->size())
-					for (int j = 0; j< get<4>(*conf); j++)
-						if (paths[get<1>(*conf)]->at(j).buildMDD && paths[get<1>(*conf)]->at(j).single)
+				if (timestep < (int)paths[agent2]->size())
+					for (int j = 0; j < timestep; j++)
+						if (paths[agent2]->at(j).buildMDD && paths[agent2]->at(j).single)
 							single2++;
-				if (get<4>(*choice) < (int)paths[get<0>(*choice)]->size())
-					for (int j = 0; j< get<4>(*choice); j++)
-						if (paths[get<0>(*choice)]->at(j).buildMDD && paths[get<0>(*choice)]->at(j).single)
+				if (choice_timestep < (int)paths[choice_agent1]->size())
+					for (int j = 0; j < choice_timestep; j++)
+						if (paths[choice_agent1]->at(j).buildMDD && paths[choice_agent1]->at(j).single)
 							single1++;
-				if (get<4>(*choice) < (int)paths[get<1>(*choice)]->size())
-					for (int j = 0; j< get<4>(*choice); j++)
-						if (paths[get<1>(*choice)]->at(j).buildMDD && paths[get<1>(*choice)]->at(j).single)
+				if (choice_timestep < (int)paths[choice_agent2]->size())
+					for (int j = 0; j < choice_timestep; j++)
+						if (paths[choice_agent2]->at(j).buildMDD && paths[choice_agent2]->at(j).single)
 							single2++;
 				if (max(single1, single2) > max(single3, single4))
 					choice = conf;
@@ -575,9 +582,10 @@ std::shared_ptr<Conflict> ICBSSearch::getHighestPriorityConflict(const list<std:
 		int i = 0;
 		for (auto conf : confs)
 		{
-			if (get<4>(*conf) > latest) {
+			auto [agent1, agent2, loc1, loc2, timestep] = *conf;
+			if (timestep > latest) {
 				choice = conf;
-				latest = get<4>(*conf);
+				latest = timestep;
 			}
 		}
 	}
@@ -843,7 +851,8 @@ bool ICBSSearch::generateChild(ICBSNode*  node)
 	int h = 0;
 	for (auto con : node->constraints)
 	{
-		if (get<3>(con)) //positive constraint
+		auto [loc1, loc2, timestep, positive_constraint] = con;
+		if (positive_constraint)
 		{
 			for (int ag = 0; ag < num_of_agents; ag++)
 			{
@@ -851,45 +860,45 @@ bool ICBSSearch::generateChild(ICBSNode*  node)
 				{
 					continue;
 				}
-				else if (get<1>(con) < 0 && // vertex constraint
-					getAgentLocation(ag, get<2>(con)) == get<0>(con))
+				else if (loc2 < 0 && // vertex constraint
+					getAgentLocation(ag, timestep) == loc1)
 				{
-					if (get<2>(con) > paths[ag]->size()) // partial expansion, postpone  the path finding
+					if (timestep > paths[ag]->size()) // partial expansion - postpone the path finding
 					{
 						pair<int, vector<PathEntry>> newPath;
 						newPath.first = ag;
 						newPath.second.resize(1);
-						newPath.second.back().location = get<2>(con);
+						newPath.second.back().location = timestep;
 						node->new_paths.push_back(newPath);
-						h += get<2>(con) - (int)paths[ag]->size();
+						h += timestep - (int)paths[ag]->size();
 					}
-					else if (!findPathForSingleAgent(node, ag, get<2>(con), max((int)paths[ag]->size() - 1, get<2>(con))))
+					else if (!findPathForSingleAgent(node, ag, timestep, max((int)paths[ag]->size() - 1, timestep)))
 					{
 						delete (node);
 						return false;
 					}
 				}
-				else if (get<1>(con) >= 0) //edge constraint
+				else if (loc2 >= 0) //edge constraint
 				{
-					if (getAgentLocation(ag, get<2>(con) - 1) == get<1>(con) && getAgentLocation(ag, get<2>(con)) == get<0>(con)) // move from "to" to "from" 
+					if (getAgentLocation(ag, timestep - 1) == loc2 && getAgentLocation(ag, timestep) == loc1) // move from "to" to "from"
 					{
-						if (!findPathForSingleAgent(node, ag, get<2>(con), max((int)paths[ag]->size() - 1, get<2>(con))))
+						if (!findPathForSingleAgent(node, ag, timestep, max((int)paths[ag]->size() - 1, timestep)))
 						{
 							delete (node);
 							return false;
 						}
 					}
-					else if (getAgentLocation(ag, get<2>(con) - 1) == get<0>(con)) // stay in location "from" 
+					else if (getAgentLocation(ag, timestep - 1) == loc1) // stay in location "from"
 					{
-						if (!findPathForSingleAgent(node, ag, get<2>(con) - 1, max((int)paths[ag]->size() - 1, get<2>(con))))
+						if (!findPathForSingleAgent(node, ag, timestep - 1, max((int)paths[ag]->size() - 1, timestep)))
 						{
 							delete (node);
 							return false;
 						}
 					}
-					else if (getAgentLocation(ag, get<2>(con)) == get<1>(con)) // stay in lcoation "to" 
+					else if (getAgentLocation(ag, timestep) == loc2) // stay in lcoation "to"
 					{
-						if (!findPathForSingleAgent(node, ag, get<2>(con), max((int)paths[ag]->size() - 1, get<2>(con))))
+						if (!findPathForSingleAgent(node, ag, timestep, max((int)paths[ag]->size() - 1, timestep)))
 						{
 							delete (node);
 							return false;
@@ -913,31 +922,31 @@ bool ICBSSearch::generateChild(ICBSNode*  node)
 			}
 			for (int i = 0; i < 2 && a[i] >= 0; i++)
 			{
-				if (get<1>(con) < 0 && get<2>(con) > paths[a[i]]->size()) // delay the path finding
+				if (loc2 < 0 && timestep > paths[a[i]]->size()) // delay the path finding
 				{
 					pair<int, vector<PathEntry>> newPath;
 					newPath.first = a[i];
 					newPath.second.resize(1);
-					newPath.second.back().location = get<2>(con);
+					newPath.second.back().location = timestep;
 					node->new_paths.push_back(newPath);
-					h += get<2>(con) - (int)paths[a[i]]->size();
+					h += timestep - (int)paths[a[i]]->size();
 					continue;
 				}
 				int lowerbound;
-				if (get<2>(con) >= (int)paths[a[i]]->size()) //conflict happens after agent reaches its goal
-					lowerbound = get<2>(con) + 1;
-				else if (!paths[a[i]]->at(get<2>(con)).buildMDD) // unknown
+				if (timestep >= (int)paths[a[i]]->size()) // conflict happens after agent reaches its goal (because constraints are on the same time as the conflict or ealier due to propagation)
+					lowerbound = timestep + 1;
+				else if (!paths[a[i]]->at(timestep).buildMDD) // unknown
 					lowerbound = (int)paths[a[i]]->size() - 1;
-				else if (!paths[a[i]]->at(get<2>(con)).single) // not cardinal
+				else if (!paths[a[i]]->at(timestep).single) // not cardinal
 					lowerbound = (int)paths[a[i]]->size() - 1;
-				else if (get<0>(con) >= 0 && get<1>(con) < 0) // cardinal vertex
+				else if (loc1 >= 0 && loc2 < 0) // cardinal vertex
 					lowerbound = (int)paths[a[i]]->size();
-				else if (paths[a[i]]->at(get<2>(con) - 1).buildMDD && paths[a[i]]->at(get<2>(con) - 1).single) // Cardinal edge
+				else if (paths[a[i]]->at(timestep - 1).buildMDD && paths[a[i]]->at(timestep - 1).single) // Cardinal edge
 					lowerbound = (int)paths[a[i]]->size();
 				else // Not cardinal edge
 					lowerbound = (int)paths[a[i]]->size() - 1;
 
-				if (!findPathForSingleAgent(node, a[i], get<2>(con), lowerbound))
+				if (!findPathForSingleAgent(node, a[i], timestep, lowerbound))
 				{
 					delete (node);
 					return false;
@@ -1297,7 +1306,7 @@ inline int ICBSSearch::getAgentLocation(int agent_id, size_t timestep)
 	return paths[agent_id]->at(timestep).location;
 }
 
-// takes the paths_found_initially and UPDATE all (constrained) paths found for agents from curr to start
+// takes the paths_found_initially and UPDATES all (constrained) paths found for agents from curr to start
 inline void ICBSSearch::updatePaths(ICBSNode* curr)
 {
 	ICBSNode* orig = curr;
@@ -1311,7 +1320,7 @@ inline void ICBSSearch::updatePaths(ICBSNode* curr)
 			if (!updated[it->first] && it->second.size() > 1)
 			{
 				paths[it->first] = &(it->second);
-				updated[get<0>(*it)] = true;
+				updated[it->first] = true;
 			}
 		}
 		curr = curr->parent;
@@ -1445,9 +1454,9 @@ bool ICBSSearch::runICBSSearch()
 #endif
 	else
 #ifndef LPA
-        std::cout << "ICBS: " << std::endl;
+		std::cout << "ICBS: " << std::endl;
 #else
-        std::cout << "ICBS/LPA*: " << std::endl;
+		std::cout << "ICBS/LPA*: " << std::endl;
 #endif
 	// set timer
 	std::clock_t start;
@@ -1505,7 +1514,7 @@ bool ICBSSearch::runICBSSearch()
 			}
 		}
 
-		if (curr->conflict == NULL) //Fail to find a conflict => no conflicts
+		if (curr->conflict == NULL) // Failed to find a conflict => no conflicts
 		{  // found a solution (and finish the while look)
 			solution_found = true;
 			solution_cost = curr->g_val;
@@ -1513,7 +1522,7 @@ bool ICBSSearch::runICBSSearch()
 		}
 
 
-		 //Expand the node
+		// Expand the node
 		HL_num_expanded++;
 		curr->time_expanded = HL_num_expanded;
 		

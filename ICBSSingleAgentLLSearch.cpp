@@ -9,10 +9,10 @@ void ICBSSingleAgentLLSearch::updatePath(const ICBSSingleAgentLLNode* goal, vect
 	int old_length = (int)path.size();
 	if (goal->timestep >= old_length)
 		path.resize(goal->timestep + 1);
-	for(int t = goal->timestep;curr != NULL; t--)
+	for(int t = goal->timestep;curr != nullptr; t--)
 	{
 		path[t].location = curr->loc;
-		if (t == goal->timestep || curr->parent == NULL) // The start and goal are singletons.
+		if (t == goal->timestep || curr->parent == nullptr) // The start and goal are singletons.
 		{
 			path[t].buildMDD = true;
 			path[t].single = true;
@@ -50,15 +50,16 @@ int ICBSSingleAgentLLSearch::getDifferentialHeuristic(int loc1, int loc2) const
 // iterate over the constraints ( cons[t] is a list of all constraints for timestep t) and return the latest
 // timestep which has a constraint involving the goal location
 // which is the minimal plan length for the agent
-int ICBSSingleAgentLLSearch::extractLastGoalTimestep(int goal_location, const vector< list< tuple<int, int, bool> > >* cons)
+int ICBSSingleAgentLLSearch::extractLastGoalTimestep(int goal_location, const vector<list<ConstraintForKnownTimestep>>* cons)
 {
 	if (cons != NULL) 
 	{
 		for (int t = static_cast<int>(cons->size()) - 1; t > 0; t--) 
 		{
-			for (list< tuple<int, int, bool> >::const_iterator it = cons->at(t).begin(); it != cons->at(t).end(); ++it) 
+			for (list<ConstraintForKnownTimestep>::const_iterator it = cons->at(t).begin(); it != cons->at(t).end(); ++it)
 			{
-				if (get<0>(*it) == goal_location && get<1>(*it) < 0 && !get<2>(*it)) {
+			    auto [loc1, loc2, positive_constraint] = *it;
+				if (loc1 == goal_location && loc2 < 0 && !positive_constraint) {
 					return (t);
 				}
 			}
@@ -149,7 +150,7 @@ bool ICBSSingleAgentLLSearch::findPath(vector<PathEntry> &path,
 					numOfConflictsForStep(curr->loc, next_id, next_timestep, cat, moves_offset);
 
 				// generate (maybe temporary) node
-				ICBSSingleAgentLLNode* next = new ICBSSingleAgentLLNode(next_id, next_g_val, next_h_val,	curr, 
+				ICBSSingleAgentLLNode* next = new ICBSSingleAgentLLNode(next_id, next_g_val, next_h_val, curr,
 					next_timestep, next_internal_conflicts, false);		
 				it = allNodes_table.find(next);// try to retrieve it from the hash table
 				if (it == allNodes_table.end())

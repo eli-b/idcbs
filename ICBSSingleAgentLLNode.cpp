@@ -29,7 +29,7 @@ ICBSSingleAgentLLNode::~ICBSSingleAgentLLNode() {
 }
 
 std::ostream& operator<<(std::ostream& os, const ICBSSingleAgentLLNode& n) {
-	if (n.parent != NULL)
+	if (n.parent != nullptr)
 		os << "LOC=" << n.loc << " ; TIMESTEP=" << n.timestep << " ; GVAL=" << n.g_val << " ; HVAL=" << std::setprecision(4) << n.h_val
 		<< " ; #CONF=" << n.num_internal_conf << " ; PARENT=" << (n.parent)->loc
 		<< " ; IN_OPEN?" << std::boolalpha << n.in_openlist;

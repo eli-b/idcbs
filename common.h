@@ -14,15 +14,11 @@
 #include <vector>
 #include <iostream>
 #include <list>
-#include <vector>
-#include <string>
 #include <functional>  // for std::hash (c++11 and above)
 #include <time.h>
 #include <memory> // for std::shared_ptr
 #include <map>
 #include <cstring>
-#include <cassert>
-#include <fstream>
 #include <algorithm>
 #include <ctime>
 
@@ -42,6 +38,9 @@ using namespace std;
 // NOTE loc2 = -1 for vertex constraints; loc2 = location2 for edge constraints
 typedef std::tuple<int, int, int, bool> Constraint;
 std::ostream& operator<<(std::ostream& os, const Constraint& constraint);
+
+// <int loc1, int loc2, bool positive_constraint>
+typedef std::tuple<int, int, bool> ConstraintForKnownTimestep;
 
 // <int agent1, int agent2, int loc1, int loc2, int timestep>
 // NOTE loc2 = -1 for vertex conflicts; loc2 = location2 for edge conflicts

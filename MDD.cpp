@@ -5,7 +5,7 @@ bool MDD::buildMDD(const std::vector < std::unordered_map<int, ConstraintState >
 {
 	int numOfLevels = goal.second - start.second + lookahead + 1;
 	int current_cost = goal.second - start.second;
-	MDDNode* root = new MDDNode(start.first, NULL); // Root
+	MDDNode* root = new MDDNode(start.first, nullptr); // Root
 	queue<MDDNode*> open;
 	list<MDDNode*> closed;
 	open.push(root);
@@ -85,7 +85,7 @@ bool MDD::buildMDD(const std::vector < std::unordered_map<int, ConstraintState >
 
 bool MDD::updateMDD(const tuple<int, int, int> &constraint, int num_col)
 {
-	int loc1 = get<0>(constraint), loc2 = get<1>(constraint), t = get<2>(constraint);
+	auto [loc1, loc2, t] = constraint;
 
 	if (loc2 < 0) // Edge constraint
 	{
@@ -165,7 +165,7 @@ MDDNode* MDD::find(int location, int level)
 		for (list<MDDNode*>::iterator it = levels[level].begin(); it != levels[level].end(); ++it)
 			if ((*it)->location == location)
 				return (*it);
-	return NULL;
+	return nullptr;
 }
 
 MDD::MDD(MDD & cpy) // deep copy
@@ -181,7 +181,7 @@ MDD::MDD(MDD & cpy) // deep copy
 			for (list<MDDNode*>::const_iterator cpyChild = cpyNode->children.begin(); cpyChild != cpyNode->children.end(); ++cpyChild)
 			{
 				MDDNode* child = find((*cpyChild)->location, (*cpyChild)->level);
-				if (child == NULL)
+				if (child == nullptr)
 				{
 					child = new MDDNode((*cpyChild)->location, (*node));
 					levels[child->level].push_back(child);
