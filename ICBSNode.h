@@ -35,20 +35,20 @@ public:
 
 	vector<LPAStar*> lpas;
 
-	// the following is used to comapre nodes in the OPEN list
+	// the following is used to compare nodes in the OPEN list
 	struct compare_node {
 		bool operator()(const ICBSNode* n1, const ICBSNode* n2) const {
 			return n1->f_val >= n2->f_val;
 		}
 	};  // used by OPEN to compare nodes by sum_min_f_vals (top of the heap has min sum_min_f_vals)
 
-	// the following is used to comapre nodes in the FOCAL list
+	// Used to compare nodes in the FOCAL list.
 	struct secondary_compare_node {
 		bool operator()(const ICBSNode* n1, const ICBSNode* n2) const {
 			if (n1->num_of_collisions == n2->num_of_collisions)
 			{
 				if (n1->g_val == n2->g_val)
-					return n1->time_generated > n2->time_generated; // break ties towards earilier generated nodes (FIFO manner)
+					return n1->time_generated > n2->time_generated; // break ties towards earlier generated nodes (FIFO manner)
 				return n1->g_val <= n2->g_val;  // break ties towards larger g_val
 			}
 			return n1->num_of_collisions >= n2->num_of_collisions;

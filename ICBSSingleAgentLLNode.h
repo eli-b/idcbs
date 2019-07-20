@@ -31,7 +31,7 @@ public:
 	//         Hence, to achieve min-Head, we return true if lhs>rhs
 	///////////////////////////////////////////////////////////////////////////////
 
-	// the following is used to comapre nodes in the OPEN list
+	// the following is used to compare nodes in the OPEN list
 	struct compare_node 
 	{
 		// returns true if n1 > n2 (note -- this gives us *min*-heap).
@@ -41,7 +41,7 @@ public:
 		}
 	};  // used by OPEN (heap) to compare nodes (top of the heap has min f-val, and then highest g-val)
 
-	// the following is used to comapre nodes in the FOCAL list
+	// the following is used to compare nodes in the FOCAL list
 	struct secondary_compare_node 
 	{
 		bool operator()(const ICBSSingleAgentLLNode* n1, const ICBSSingleAgentLLNode* n2) const // returns true if n1 > n2

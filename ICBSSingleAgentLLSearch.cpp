@@ -224,7 +224,7 @@ bool ICBSSingleAgentLLSearch::findShortestPath(vector<PathEntry> &path,
 			allNodes_table.clear();
 			return true;
 		}
-		else if (curr->timestep > goal.second) // did not reach the goal lcoation before the required timestep
+		else if (curr->timestep > goal.second) // did not reach the goal location before the required timestep
 			continue;
 		num_expanded++;
 		for (int i = 0; i < 5; i++)
