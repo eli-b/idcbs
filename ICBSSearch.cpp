@@ -1655,9 +1655,9 @@ ICBSSearch::ICBSSearch(const MapLoader& ml, const AgentsLoader& al, double focal
 	{
 		int init_loc = ml.linearize_coordinate((al.initial_locations[i]).first, (al.initial_locations[i]).second);
 		int goal_loc = ml.linearize_coordinate((al.goal_locations[i]).first, (al.goal_locations[i]).second);
-		ComputeHeuristic ch(init_loc, goal_loc, ml.my_map, ml.rows, ml.cols, ml.moves_offset);
+		HeuristicCalculator heuristicCalculator(init_loc, goal_loc, ml.my_map, ml.rows, ml.cols, ml.moves_offset);
 		search_engines[i] = new ICBSSingleAgentLLSearch(init_loc, goal_loc, ml.my_map, ml.rows, ml.cols, ml.moves_offset);
-		ch.getHVals(search_engines[i]->my_heuristic);
+		heuristicCalculator.getHVals(search_engines[i]->my_heuristic);
 #ifndef LPA
 #else
 		float* my_heuristic = new float[search_engines[i]->my_heuristic.size()];

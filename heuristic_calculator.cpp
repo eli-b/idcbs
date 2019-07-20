@@ -1,4 +1,4 @@
-#include "compute_heuristic.h"
+#include "heuristic_calculator.h"
 #include "ICBSSingleAgentLLNode.h"
 
 using google::dense_hash_map;      // namespace where class lives by default
@@ -7,12 +7,12 @@ using std::endl;
 using boost::heap::fibonacci_heap;
 
 
-ComputeHeuristic::ComputeHeuristic(int start_location, int goal_location, 
+HeuristicCalculator::HeuristicCalculator(int start_location, int goal_location,
 	const bool* my_map, int map_rows, int map_cols, const int* moves_offset) :
     my_map(my_map), map_rows(map_rows), map_cols(map_cols), moves_offset(moves_offset),
 	start_location(start_location), goal_location(goal_location){}
 
-void ComputeHeuristic::getHVals(vector<int>& res)
+void HeuristicCalculator::getHVals(vector<int>& res)
 {
 	int root_location = goal_location;
 	res.resize(map_rows * map_cols);
@@ -64,13 +64,13 @@ void ComputeHeuristic::getHVals(vector<int>& res)
 	for (it = nodes.begin(); it != nodes.end(); it++) {
 		ICBSSingleAgentLLNode* s = (*it).first;
 		res[s->loc] = (int) s->g_val;
-		delete (s);
+		delete s;
 	}
 	nodes.clear();
 	heap.clear();
 }
 
-void ComputeHeuristic::getAllPairsHVals(vector<vector<int>>& res)
+void HeuristicCalculator::getAllPairsHVals(vector<vector<int>>& res)
 {
 	int map_size = map_rows * map_cols;
 	res.resize(map_size);
@@ -125,7 +125,7 @@ void ComputeHeuristic::getAllPairsHVals(vector<vector<int>>& res)
 		for (it = nodes.begin(); it != nodes.end(); it++) {
 			ICBSSingleAgentLLNode* s = (*it).first;
 			res[root_location][s->loc] = (int) s->g_val;
-			delete (s);
+			delete s;
 		}
 		nodes.clear();
 		heap.clear();

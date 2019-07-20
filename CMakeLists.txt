@@ -15,8 +15,8 @@ add_executable(disjoint_CBSH
         agents_loader.h
         common.cpp
         common.h
-        compute_heuristic.cpp
-        compute_heuristic.h
+        heuristic_calculator.cpp
+        heuristic_calculator.h
         dynamic_constraints_manager.cpp
         dynamic_constraints_manager.h
         driver.cpp

@@ -3,7 +3,7 @@
 
 #include "ICBSNode.h"
 #include "ICBSSingleAgentLLSearch.h"
-#include "compute_heuristic.h"
+#include "heuristic_calculator.h"
 #include "agents_loader.h"
 
 class ICBSSearch
