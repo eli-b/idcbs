@@ -77,9 +77,6 @@ LPAStar::LPAStar(int start_location, int goal_location, const float* my_heuristi
 
 // ----------------------------------------------------------------------------
 bool LPAStar::updatePath(LPANode* goal) {
-  this->paths.push_back(vector<int>());
-  this->paths_costs.push_back(0);
-
   LPANode* curr = goal;
   while (curr != start_n) {
      if (curr == nullptr)
@@ -335,6 +332,8 @@ bool LPAStar::findPath(const std::vector < std::unordered_map<int, AvoidanceStat
       }
     }
   }
+  paths.push_back(vector<int>());
+  paths_costs.push_back(0);
   if (goal_n->g_ < std::numeric_limits<float>::max()) {  // If a solution was found.
     return updatePath(goal_n);
   }
