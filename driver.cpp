@@ -79,8 +79,7 @@ int main(int argc, char** argv)
 	if (vm["split"].as<string>() != "NON_DISJOINT")
 		cout << vm["split"].as<string>() << "+";
 
-	ICBSSearch icbs(ml, al, 1.0, p, vm["heuristic"].as<bool>(), vm["cutoffTime"].as<int>());
-	icbs.screen = vm["screen"].as<int>();
+	ICBSSearch icbs(ml, al, 1.0, p, vm["heuristic"].as<bool>(), vm["cutoffTime"].as<int>(), vm["screen"].as<int>());
 	icbs.posConstraintsAlsoAddPosConstraintsOnMddNarrowLevelsLeadingToThem = vm["propagation"].as<bool>();
 	// run 
 	//icbs.runICBSSearch();
