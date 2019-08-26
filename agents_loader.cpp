@@ -111,7 +111,7 @@ AgentsLoader::AgentsLoader(string fname, const MapLoader &ml, int agentsNum = 0,
 		}
 		saveToFile(fname);
 	}
-	else if (agentsNum > 0 && width > 0)//Generate agents for warehouse scenario
+	else if (agentsNum > 0 && width > 0)  // Generate agents for a warehouse scenario
 	{
 		this->num_of_agents = agentsNum;
 		vector<bool> starts(ml.rows * ml.cols, false);
