@@ -31,11 +31,11 @@ public:
   const MapLoader* ml_;
 
   // Vertex constraint semantics: being at loc_id at time ts is disallowed.
-  void addVertexConstraint(int loc_id, int ts);  // Also calls to updateState.
+  void addVertexConstraint(int loc_id, int ts);
+  void popVertexConstraint(int loc_id, int ts);
   // Edge constraint semantics: moving from from_id to to_id and arriving there at ts is disallowed.
-  void addEdgeConstraint(int from_id, int to_id, int ts);  // Also calls to updateState.
-  // Both methods above uses this one. Assumes <from,to,ts> is otherwise a valid move! (that is, from/to are not a blocked cell.)
-  void addDynConstraint(int from_id, int to_id, int ts);
+  void addEdgeConstraint(int from_id, int to_id, int ts);
+  void popEdgeConstraint(int from_id, int to_id, int ts);
 
 /* Returns true if the move <curr_id, next_id, next_t> is valid w.r.t. dyn_constraints.
 */
@@ -47,6 +47,10 @@ public:
   DynamicConstraintsManager(const DynamicConstraintsManager& other); // Copy c'tor.
   ~DynamicConstraintsManager();  // D'tor.
 
+private:
+  // Both constraint methods above use this one. Assumes <from,to,ts> is otherwise a valid move! (that is, from/to are not a blocked cell.)
+  void addDynConstraint(int from_id, int to_id, int ts);
+  void popDynConstraint(int from_id, int to_id, int ts);
 
 };
 #endif

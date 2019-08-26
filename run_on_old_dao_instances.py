@@ -25,7 +25,7 @@ map_names = ('den502d', 'ost003d', 'brc202d', 'den520d')
 skip = 0
 if exists(output_file_path):
     with open(output_file_path) as f:
-        skip = len(f.readlines())#- 1 no header to the csv
+        skip = len(f.readlines())- 1
 
 for map_name, num_agents, i in product(map_names, range(5, 100, 5), range(100)):
 #            for split_strategy in ('WIDTH', ):  # Looks like the best one

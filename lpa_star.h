@@ -48,6 +48,8 @@ class LPAStar {
   vector<uint64_t> num_expanded;  // each search iteration has num_expanded nodes (all kept for statistics)
   vector< vector<int> > expandedHeatMap;  // (all kept for statistics)
   LPANode* goal_n;
+  list<LPANode*> possible_goals;
+  int min_goal_timestep;
   LPANode* start_n;
 
   DynamicConstraintsManager dcm;
@@ -63,13 +65,14 @@ class LPAStar {
   LPANode::compare_node nodes_comparator;
 // ----------------------------------------------------------------------------------------------------------
 
+  int agent_id;  // For debugging
 
 /* ctor
    Note -- ctor also pushes the start node into OPEN (as findPath is incremental).
 */
   LPAStar(int start_location, int goal_location,
           const float* my_heuristic,
-          const MapLoader* ml);
+          const MapLoader* ml, int agent_id = -1);
 
 
 /* Returns a pointer to the path found.
@@ -93,7 +96,7 @@ class LPAStar {
 
 /* LPA* helper methods
 */
-  inline std::pair<bool, LPANode*> retrieveNode(int loc_id, int t=0);
+  inline std::pair<bool, LPANode*> retrieveNode(int loc_id, int t);
   inline void openlistAdd(LPANode* n);
   inline void openlistUpdate(LPANode* n);
   inline void openlistRemove(LPANode* n);
@@ -103,14 +106,18 @@ class LPAStar {
 
   // Vertex constraint semantics: being at loc_id at time ts is disallowed (hence, a move from it to any neighbor at ts is disallowed).
   void addVertexConstraint(int loc_id, int ts, const std::vector < std::unordered_map<int, AvoidanceState > >& cat);  // Also calls updateState.
+  void popVertexConstraint(int loc_id, int ts, const std::vector < std::unordered_map<int, AvoidanceState > >& cat);  // Also calls updateState.
   // Edge constraint semantics: moving from from_id to to_id and arriving there at ts is disallowed.
   void addEdgeConstraint(int from_id, int to_id, int ts, const std::vector < std::unordered_map<int, AvoidanceState > >& cat);  // Also calls updateState.
+  void popEdgeConstraint(int from_id, int to_id, int ts, const std::vector < std::unordered_map<int, AvoidanceState > >& cat);  // Also calls updateState.
 
   // Finds a new path, returns whether a solution was found
   bool findPath(const std::vector < std::unordered_map<int, AvoidanceState > >& cat, int fLowerBound, int minTimestep);
 
+  void updateGoal();
+
   string openToString(bool print_priorities) const;
-  LPAStar (const LPAStar& other);  // Copy ctor (deep copy).  When splitting this is needed
+  LPAStar(const LPAStar& other);  // Copy ctor (deep copy).  When splitting this is needed
   ~LPAStar();  // Dtor.
 
 };

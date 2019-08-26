@@ -10,8 +10,8 @@ struct PathEntry
 	int location;
 	bool single; // it is the singleton in its MDD
 	int numMDDNodes; // number of MDD nodes at the given timestep
-	bool buildMDD; // only when buildMDD is true, single is useful.
-	PathEntry(){location = -1; buildMDD= false; single = false; numMDDNodes = 0;}
+	bool builtMDD; // only when builtMDD is true, single is useful.
+	PathEntry(){location = -1; builtMDD= false; single = false; numMDDNodes = 0;}
 };
 
 class ICBSSingleAgentLLNode
@@ -26,7 +26,7 @@ public:
 	bool in_openlist = false;
 
 	///////////////////////////////////////////////////////////////////////////////
-	// NOTE -- Normally, compare_node (lhs,rhs) suppose to return true if lhs<rhs.
+	// NOTE -- Normally, compare_node (lhs,rhs) is supposed to return true if lhs<rhs.
 	//         However, Heaps in STL and Boost are implemented as max-Heap.
 	//         Hence, to achieve min-Head, we return true if lhs>rhs
 	///////////////////////////////////////////////////////////////////////////////

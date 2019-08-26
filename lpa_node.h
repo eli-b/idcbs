@@ -42,7 +42,7 @@ class LPANode {
     bool operator()(const LPANode* n1, const LPANode* n2) const {
       if ( n1->getKey1() == n2->getKey1() ) {
           if ( n1->getKey2() == n2->getKey2() )
-              return n1->getKey3() > n2->getKey3();  // break ties towards *lower* g-vals and lower number of conflicts
+              return n1->getKey3() >= n2->getKey3();  // break ties towards *lower* g-vals and lower number of conflicts
           return n1->getKey2() > n2->getKey2();  // break ties towards *lower* g-vals
       }
       return n1->getKey1() > n2->getKey1();
@@ -109,7 +109,7 @@ class LPANode {
 
   std::string piString() const {
     std::string retVal;
-    for (auto n:pi_) {
+    for (auto n: pi_) {
       retVal = retVal + n->stateString() + " ; ";
     }
     return retVal;

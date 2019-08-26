@@ -9,6 +9,7 @@ link_libraries(boost_program_options
         boost_graph
         pthread
         glog
+        stdc++fs
         )
 
 add_executable(disjoint_CBSH

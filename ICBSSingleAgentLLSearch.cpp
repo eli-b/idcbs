@@ -2,26 +2,29 @@
 #include "conflict_avoidance_table.h"
 
 
-// Updates the path.
+// Put the path to the give goal node in the <path> vector
 void ICBSSingleAgentLLSearch::updatePath(const ICBSSingleAgentLLNode* goal, vector<PathEntry> &path)
 {
 	const ICBSSingleAgentLLNode* curr = goal;
 	int old_length = (int)path.size();
 	if (goal->timestep >= old_length)
 		path.resize(goal->timestep + 1);
-	for(int t = goal->timestep;curr != nullptr; t--)
+
+	// The start and goal are singletons:
+	path[goal->timestep].builtMDD = true;
+	path[goal->timestep].single = true;
+	path[goal->timestep].numMDDNodes = 1;
+	path[0].builtMDD = true;
+	path[0].single = true;
+	path[0].numMDDNodes = 1;
+
+	for(int t = goal->timestep; curr != nullptr; t--)
 	{
 		path[t].location = curr->loc;
-		if (t == goal->timestep || curr->parent == nullptr) // The start and goal are singletons.
-		{
-			path[t].buildMDD = true;
-			path[t].single = true;
-			path[t].numMDDNodes = 1;
-		}
-		else
-			path[t].buildMDD = false;
+		path[t].builtMDD = false;
 		curr = curr->parent;
 	}
+
 	if (path.size() > old_length)
 	{
 		int i = old_length;
@@ -185,7 +188,7 @@ bool ICBSSingleAgentLLSearch::findPath(vector<PathEntry> &path,
 // find the shortest path from location start.first at timestep start.second to location goal.first
 // (no earlier than timestep max{earliestGoalTimestep, lastGoalConsTime + 1} and no later than timestep goal.second)
 // that satisfies all constraints in cons_table
-// while minimizing conflicts with paths in cat
+// while minimizing conflicts with paths in cat and put it in the given <path> vector
 // return true if a path was found (and update path) or false if no path exists
 bool ICBSSingleAgentLLSearch::findShortestPath(vector<PathEntry> &path,
 	const std::vector < std::unordered_map<int, ConstraintState > >& cons_table,
@@ -331,6 +334,6 @@ ICBSSingleAgentLLSearch::ICBSSingleAgentLLSearch(int start_location, int goal_lo
 
 ICBSSingleAgentLLSearch::~ICBSSingleAgentLLSearch()
 {
-	delete (empty_node);
-	delete (deleted_node);
+	delete empty_node;
+	delete deleted_node;
 }

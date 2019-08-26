@@ -78,7 +78,7 @@ bool MDD::buildMDD(const std::vector < std::unordered_map<int, ConstraintState >
 	// Delete useless nodes (nodes who don't have any children)
 	for (list<MDDNode*>::iterator it = closed.begin(); it != closed.end(); ++it)
 		if ((*it)->children.empty() && (*it)->level < numOfLevels - 1)
-			delete (*it);
+			delete *it;
 	closed.clear();
 	return true;
 }
@@ -155,7 +155,7 @@ void MDD::clear()
 	for (int i = 0; i < levels.size(); i++)
 	{
 		for (list<MDDNode*>::iterator it = levels[i].begin(); it != levels[i].end(); ++it)
-			delete (*it);
+			delete *it;
 	}
 }
 

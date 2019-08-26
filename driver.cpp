@@ -83,8 +83,8 @@ int main(int argc, char** argv)
 	icbs.screen = vm["screen"].as<int>();
 	icbs.posConstraintsAlsoAddPosConstraintsOnMddNarrowLevelsLeadingToThem = vm["propagation"].as<bool>();
 	// run 
-	icbs.runICBSSearch();
-	icbs.printPaths();
+	//icbs.runICBSSearch();
+	icbs.runIterativeDeepeningICBSSearch();
 	// validate the solution
 	icbs.isFeasible();
 	// save data:
