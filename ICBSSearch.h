@@ -26,6 +26,7 @@ public:
 	uint64_t LL_num_expanded = 0;
 	uint64_t LL_num_generated = 0;
 	uint64_t HL_num_reexpanded = 0;
+	string max_mem;
 
 	// statistics of solution quality
 	bool solution_found = false;

@@ -1424,7 +1424,9 @@ void ICBSSearch::printResults() const
 		((float) prepTime) / CLOCKS_PER_SEC << "," <<
 		HL_num_expanded << "," << HL_num_generated << "," <<
 		LL_num_expanded << "," << LL_num_generated << "," <<
-		((float) runtime) / CLOCKS_PER_SEC << "," <<  std::endl;
+		((float) runtime) / CLOCKS_PER_SEC << "," <<
+		max_mem <<
+		std::endl;
 }
 
 void ICBSSearch::saveResults(const string& outputFile, const string& agentFile, const string& solver) const
@@ -1438,7 +1440,8 @@ void ICBSSearch::saveResults(const string& outputFile, const string& agentFile, 
 		HL_num_expanded << "," << HL_num_generated << "," <<
 		LL_num_expanded << "," << LL_num_generated << "," <<
 		((float) runtime) / CLOCKS_PER_SEC << "," <<
-		solver << "," << agentFile << "," << endl;
+		max_mem << "," <<
+		solver << "," << agentFile << endl;
 	stats.close();
 }
 

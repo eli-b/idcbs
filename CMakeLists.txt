@@ -7,6 +7,7 @@ include_directories(.)
 
 link_libraries(boost_program_options
         boost_graph
+        pthread
         glog
         )
 

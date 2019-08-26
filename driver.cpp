@@ -4,6 +4,7 @@
 
 #include <boost/program_options.hpp>
 #include <boost/property_tree/ptree.hpp>
+#include <boost/process.hpp>
 #include "g_logging.h"
 
 namespace pt = boost::property_tree;
@@ -86,13 +87,26 @@ int main(int argc, char** argv)
 	icbs.printPaths();
 	// validate the solution
 	icbs.isFeasible();
-	// save data
+	// save data:
+	// 1. Get max memory
+	pid_t pid = getpid();
+	char cmd[200];
+	sprintf(cmd, "cat /proc/%d/status | grep -i peak | xargs echo | cut -d' ' -f2", pid);
+	string string_cmd(cmd);
+	boost::process::ipstream pipe_stream;
+	boost::process::child child_p("/bin/bash", std::vector<std::string> {"-c", cmd}, boost::process::std_out > pipe_stream);
+	getline(pipe_stream, icbs.max_mem);
+	child_p.wait();
+
+    // 2. print results
+	icbs.printResults();
+
+	// 3. save results to file
 #ifndef LPA
-    icbs.saveResults(vm["output"].as<string>(), vm["agents"].as<string>(), vm["split"].as<string>());
+	icbs.saveResults(vm["output"].as<string>(), vm["agents"].as<string>(), vm["split"].as<string>());
 #else
 	icbs.saveResults(vm["output"].as<string>(), vm["agents"].as<string>(), vm["split"].as<string>()+"/LPA*");
 #endif
 
 	return 0;
-
 }
