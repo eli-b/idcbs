@@ -1877,21 +1877,24 @@ bool ICBSSearch::runIterativeDeepeningICBSSearch()
 			std::cout << "Next threshold not found! Unsolvable??" << std::endl;
 			break;
 		}
-		for (const auto& agent_neg_constraints: root_node->negative_constraints) {
-			if (agent_neg_constraints.size() != 0) {
-				std::cout << "IDCBS root has constraints at end of threshold " << threshold << "!" << std::endl;
-				std::abort();
-			}
-		}
-		for (auto lpa: root_node->lpas) {
-			for (const auto& dyn_constraints_for_timestep : lpa->dcm.dyn_constraints_) {
-				if (dyn_constraints_for_timestep.size() != 0) {
-					std::cout << "LPA* for agent " << lpa->agent_id << " has constraints at end of threshold "
-							  << threshold << "!" << std::endl;
-					std::abort();
-				}
-			}
-		}
+
+		if (screen) {
+            for (const auto &agent_neg_constraints: root_node->negative_constraints) {
+                if (agent_neg_constraints.size() != 0) {
+                    std::cout << "IDCBS root has constraints at end of threshold " << threshold << "!" << std::endl;
+                    std::abort();
+                }
+            }
+            for (auto lpa: root_node->lpas) {
+                for (const auto &dyn_constraints_for_timestep : lpa->dcm.dyn_constraints_) {
+                    if (dyn_constraints_for_timestep.size() != 0) {
+                        std::cout << "LPA* for agent " << lpa->agent_id << " has constraints at end of threshold "
+                                  << threshold << "!" << std::endl;
+                        std::abort();
+                    }
+                }
+            }
+        }
 
 		threshold = next_threshold;
 	}  // end of while loop
