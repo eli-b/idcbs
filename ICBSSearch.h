@@ -78,7 +78,7 @@ private:
 	const int* moves_offset;
 	int num_map_cols;
 
-
+	std::vector < std::unordered_map<int, AvoidanceState > > root_cat;
 	ICBSNode* root_node;
 	vector < ICBSSingleAgentLLSearch* > search_engines;  // used to find (single) agents' paths and mdd
 	vector<vector<PathEntry>*> paths;  // The paths of the node we're currently working on.
@@ -109,8 +109,9 @@ private:
 
 	// branch
 	void branch(ICBSNode* curr, ICBSNode* n1, ICBSNode*n2);
-	bool findPathForSingleAgent(ICBSNode *node, vector<vector<PathEntry> *> &the_paths, int timestep,
-                                int earliestGoalTimestep, int ag);
+	bool findPathForSingleAgent(ICBSNode *node, vector<vector<PathEntry> *> &the_paths,
+	                            vector<unordered_map<int, AvoidanceState >> *the_cat,
+	                            int timestep, int earliestGoalTimestep, int ag);
 	bool generateChild(ICBSNode *node, vector<vector<PathEntry> *> &the_paths);
 	bool finishPartialExpansion(ICBSNode *node, vector<vector<PathEntry> *> &the_paths);
 	void buildConflictAvoidanceTable(vector<vector<PathEntry> *> &the_paths, int exclude_agent, const ICBSNode &node,
@@ -119,6 +120,8 @@ private:
 		std::vector < std::unordered_map<int, ConstraintState > >& cons_table, pair<int, int>& start, pair<int, int>& goal);
 	void addPathToConflictAvoidanceTable(vector<PathEntry> *path,
 	                                     std::vector<std::unordered_map<int, AvoidanceState> > &cat);
+	void removePathFromConflictAvoidanceTable(vector<PathEntry> *path,
+	                                          std::vector<std::unordered_map<int, AvoidanceState> > &cat);
 	int countMddSingletons(int agent_id, int conflict_timestep);
 	int getTotalMddWidth(int agent_id);
 	void addPositiveConstraintsOnNarrowLevelsLeadingToPositiveConstraint(int agent_id, int timestep, ICBSNode* n1, ICBSNode* n2, const std::vector < std::unordered_map<int, AvoidanceState > >* cat);
@@ -140,13 +143,15 @@ private:
 	bool arePathsConsistentWithConstraints(vector<vector<PathEntry> *> &the_paths, ICBSNode *curr) const;
 	inline int getAgentLocation(vector<vector<PathEntry> *> &the_paths, size_t timestep, int agent_id);
 
-    std::tuple<bool, int>
-    do_idcbsh_iteration(ICBSNode *curr, vector<vector<PathEntry> *> &the_paths, int threshold,
-                        int next_threshold, clock_t end_by);
-    tuple<bool, bool> idcbsh_add_constraint_and_replan(ICBSNode *node, vector<vector<PathEntry> *> &the_paths,
-                                                       int max_cost);
-    void idcbsh_unconstrain(ICBSNode *node, vector<vector<PathEntry> *> &the_paths, vector<PathEntry> &path_backup,
-                            shared_ptr<Conflict> &conflict_backup, int makespan_backup, int g_val_backup,
-                            int h_val_backup);
+	std::tuple<bool, int> do_idcbsh_iteration(ICBSNode *curr, vector<vector<PathEntry> *> &the_paths,
+	                                          vector<unordered_map<int, AvoidanceState >> &the_cat,
+	                                          int threshold, int next_threshold, clock_t end_by);
+	tuple<bool, bool> idcbsh_add_constraint_and_replan(ICBSNode *node, vector<vector<PathEntry> *> &the_paths,
+	                                                   vector<unordered_map<int, AvoidanceState >> &the_cat, int max_cost);
+	void idcbsh_unconstrain(ICBSNode *node, vector<vector<PathEntry> *> &the_paths,
+	                        vector<unordered_map<int, AvoidanceState >> &the_cat,
+	                        vector<PathEntry> &path_backup,
+	                        shared_ptr<Conflict> &conflict_backup, int makespan_backup, int g_val_backup,
+	                        int h_val_backup);
 };
 
