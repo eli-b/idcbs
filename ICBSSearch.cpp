@@ -681,11 +681,11 @@ void ICBSSearch::buildMDD(ICBSNode &curr, vector<vector<PathEntry> *> &the_paths
 		return;
 
 	// Find the last node on this branch that computed a new path for this agent
-	ICBSNode* it = &curr; // Back to where we get the path
+	ICBSNode* node = &curr; // Back to where we get the path
 	bool found = false;
-	while (it->parent != NULL)
+	while (node->parent != NULL)
 	{
-		for (const auto& newPath : it->new_paths)
+		for (const auto& newPath : node->new_paths)
 		{
 			if (newPath.first == ag)
 			{
@@ -696,16 +696,16 @@ void ICBSSearch::buildMDD(ICBSNode &curr, vector<vector<PathEntry> *> &the_paths
 		if (found)
 			break;
 		else
-			it = it->parent;
+			node = node->parent;
 	}
 
 	// Build a constraint table with entries for each timestep up to the makespan at the last node that added a
 	// constraint for the agent. There can't be constraints that occur later than that because each agent must plan a
 	// path that at least lets every constraint have the opportunity to affect it.
-	std::vector < std::unordered_map<int, ConstraintState > > cons_table(it->makespan + 1);
+	std::vector < std::unordered_map<int, ConstraintState > > cons_table(node->makespan + 1);
 	pair<int, int> start = make_pair(search_engines[ag]->start_location, 0);
 	pair<int, int> goal = make_pair(search_engines[ag]->goal_location, (int)the_paths[ag]->size() - 1);
-	buildConstraintTable(it, ag, timestep, cons_table, start, goal);
+	buildConstraintTable(node, ag, timestep, cons_table, start, goal);
 
 	std::clock_t mdd_building_start = std::clock();
 	auto wall_mddStart = std::chrono::system_clock::now();
