@@ -28,8 +28,10 @@ public:
 	clock_t prepTime = 0; // CPU time for preprocessing
 	clock_t lowLevelTime = 0; // CPU time of running the low level
 	clock_t highLevelTime = 0; // CPU time of running the high level
+    clock_t highLevelMddBuildingTime = 0; // CPU time of building MDDs in the high level
 	std::chrono::nanoseconds wall_runtime = std::chrono::nanoseconds::zero(); // Wall time, excluding preprocessing
 	std::chrono::nanoseconds wall_prepTime = std::chrono::nanoseconds::zero(); // Wall time for preprocessing
+    std::chrono::nanoseconds wall_mddTime = std::chrono::nanoseconds::zero(); // Wall time for building MDDs
 	std::chrono::nanoseconds wall_lowLevelTime = std::chrono::nanoseconds::zero(); // Wall time of running the low level
 	std::chrono::nanoseconds wall_highLevelTime = std::chrono::nanoseconds::zero(); // Wall time for running the high level
 	uint64_t HL_num_expanded = 0;

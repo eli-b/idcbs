@@ -661,8 +661,12 @@ void ICBSSearch::buildMDD(ICBSNode &curr, vector<vector<PathEntry> *> &the_paths
 	pair<int, int> goal = make_pair(search_engines[ag]->goal_location, (int)the_paths[ag]->size() - 1);
 	buildConstraintTable(it, ag, timestep, cons_table, start, goal);
 
-	MDD  mdd;
+	std::clock_t mdd_building_start = std::clock();
+	auto wall_mddStart = std::chrono::system_clock::now();
+	MDD mdd;
 	mdd.buildMDD(cons_table, start, goal, lookahead, *search_engines[ag]);
+	highLevelMddBuildingTime += std::clock() - mdd_building_start;
+	wall_mddTime = std::chrono::system_clock::now() - wall_mddStart;
 
 	for (int i = 0; i < mdd.levels.size(); i++)
 	{
@@ -1481,7 +1485,7 @@ void ICBSSearch::printConstraints(const ICBSNode* n) const
 
 void ICBSSearch::printResults() const
 {
-	std::cout << "Status,Cost,Focal Delta,Root Cost,Root f,Wall PrepTime,PrepTime,"
+	std::cout << "Status,Cost,Focal Delta,Root Cost,Root f,Wall PrepTime,PrepTime,Wall MDD Time,MDD Time,"
 				 "HL Expanded,HL Generated,LL Expanded,LL Generated,Wall HL runtime,HL runtime,"
 				 "Wall LL runtime,LL runtime,Wall Runtime,Runtime,Max Mem (kB)" << std::endl;
 	if (runtime > time_limit * CLOCKS_PER_SEC)  // timeout
@@ -1501,6 +1505,8 @@ void ICBSSearch::printResults() const
 		root_node->g_val << "," << root_node->f_val << "," <<
 		((float) wall_prepTime.count()) / 1000000000 << "," <<
 		((float) prepTime) / CLOCKS_PER_SEC << "," <<
+		((float) wall_mddTime.count()) / 1000000000 << "," <<
+		((float) highLevelMddBuildingTime) / CLOCKS_PER_SEC << "," <<
 		HL_num_expanded << "," << HL_num_generated << "," <<
 		LL_num_expanded << "," << LL_num_generated << "," <<
 		((float) wall_highLevelTime.count()) / 1000000000 << "," <<
@@ -1519,7 +1525,7 @@ void ICBSSearch::saveResults(const string& outputFile, const string& agentFile, 
 	if (std::filesystem::exists(outputFile) == false)
 	{
 		stats.open(outputFile);
-		stats << "Cost,Focal Delta,Root Cost,Root f,Wall PrepTime,PrepTime,"
+		stats << "Cost,Focal Delta,Root Cost,Root f,Wall PrepTime,PrepTime,Wall MDD Time,MDD Time,"
 		          "HL Expanded,HL Generated,LL Expanded,LL Generated,Wall HL runtime,HL runtime,"
 		          "Wall LL runtime,LL runtime,Wall Runtime,Runtime,Max Mem (kB),solver,instance" << std::endl;
 	}
@@ -1530,6 +1536,8 @@ void ICBSSearch::saveResults(const string& outputFile, const string& agentFile, 
 		root_node->g_val << "," << root_node->f_val << "," <<
 		((float) wall_prepTime.count()) / 1000000000 << "," <<
 		((float) prepTime) / CLOCKS_PER_SEC << "," <<
+        ((float) wall_mddTime.count()) / 1000000000 << "," <<
+        ((float) highLevelMddBuildingTime) / CLOCKS_PER_SEC << "," <<
 		HL_num_expanded << "," << HL_num_generated << "," <<
 		LL_num_expanded << "," << LL_num_generated << "," <<
 		((float) wall_highLevelTime.count()) / 1000000000 << "," <<
