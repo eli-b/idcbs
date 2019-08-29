@@ -22,7 +22,8 @@ using std::memcpy;
 
 // ----------------------------------------------------------------------------
 LPAStar::LPAStar(int start_location, int goal_location, const float* my_heuristic, const MapLoader* ml, int agent_id) :
-  my_heuristic(my_heuristic), my_map(ml->my_map), actions_offset(ml->moves_offset), agent_id(agent_id) {
+    my_heuristic(my_heuristic), my_map(ml->my_map), actions_offset(ml->moves_offset), agent_id(agent_id),
+    allNodes_table(ml->map_size()) {
   this->start_location = start_location;
   this->goal_location = goal_location;
   this->min_goal_timestep = 0;
@@ -33,16 +34,7 @@ LPAStar::LPAStar(int start_location, int goal_location, const float* my_heuristi
   this->paths.push_back(vector<int>());
   this->paths_costs.push_back(0);
   this->expandedHeatMap.push_back(vector<int>());
-
-  // Initialize allNodes_table (hash table) and OPEN (heap).
-  empty_node = new LPANode();
-  empty_node->loc_id_ = -1;
-  deleted_node = new LPANode();
-  deleted_node->loc_id_ = -2;
-  allNodes_table.set_empty_key(empty_node);
-  allNodes_table.set_deleted_key(deleted_node);
   open_list.clear();
-  allNodes_table.clear();
 
   dcm.setML(ml);
 
@@ -55,7 +47,7 @@ LPAStar::LPAStar(int start_location, int goal_location, const float* my_heuristi
                         0);
   start_n->openlist_handle_ = open_list.push(start_n);
   start_n->in_openlist_ = true;
-  allNodes_table[start_n] = start_n;
+  allNodes_table.set(start_location, start_n->t_, start_n);
 
   // Create goal node. (Not being pushed to OPEN.)
   goal_n = new LPANode(goal_location,
@@ -65,7 +57,7 @@ LPAStar::LPAStar(int start_location, int goal_location, const float* my_heuristi
                        nullptr,                             // bp
                        std::numeric_limits<int>::max());    // t
   possible_goals.push_back(goal_n);  // Its t is infinity so it must be in the end
-  allNodes_table[goal_n] = goal_n;
+  allNodes_table.set(goal_location, goal_n->t_, goal_n);
 
   // For the case of the trivial path - the start node is never passed to updateState
   if (start_n->loc_id_ == goal_location &&
@@ -246,27 +238,25 @@ void LPAStar::popEdgeConstraint(int from_id, int to_id, int ts, const std::vecto
 */
 // ----------------------------------------------------------------------------
 inline std::pair<bool, LPANode*> LPAStar::retrieveNode(int loc_id, int t) {  // (t=0 for single agent)
-  // create dummy node to be used for table lookup
-  LPANode* temp_n = new LPANode(loc_id,
-                                std::numeric_limits<float>::max(),  // g_val
-                                std::numeric_limits<float>::max(),  // v_val
-                                my_heuristic[loc_id],                // h_val
-                                nullptr,                             // bp
-                                t);                                  // timestep
-                                // TODO: Consider reusing a "query node" and only calling new when it's needed
-  hashtable_t::iterator it;
-  // try to retrieve it from the hash table
-  it = allNodes_table.find(temp_n);
-  if ( it == allNodes_table.end() ) {  // case (2) above
+  // try to retrieve it from the table
+  auto [exists, node] = allNodes_table.get(loc_id, t);
+  if (exists) {
+      VLOG(11) << "\t\t\t\t\tallNodes_table: Returned existing" << node->nodeString();
+      return make_pair(true, node);
+  }
+  else {  // case (2) above
+    auto n = new LPANode(loc_id,
+                         std::numeric_limits<float>::max(),  // g_val
+                         std::numeric_limits<float>::max(),  // v_val
+                         my_heuristic[loc_id],         // h_val
+                         nullptr,                     // bp
+                         t);                                 // timestep
+
     //num_generated[search_iterations]++; -- counted instead when adding to OPEN (so we account for reopening).
     //temp_n->initState();  -- already done correctly in construction above.
-    allNodes_table[temp_n] = temp_n;
-    VLOG(11) << "\t\t\t\t\tallNodes_table: Added new node" << temp_n->nodeString();
-    return (make_pair(false, temp_n));
-  } else {  // case (1) above
-    delete(temp_n);
-    VLOG(11) << "\t\t\t\t\tallNodes_table: Returned existing" << (*it).second->nodeString();
-    return (make_pair(true, (*it).second));
+    allNodes_table.set(loc_id, t, n);
+    VLOG(11) << "\t\t\t\t\tallNodes_table: Added new node" << n->nodeString();
+    return (make_pair(false, n));
   }
 }
 // ----------------------------------------------------------------------------
@@ -311,20 +301,22 @@ inline LPANode* LPAStar::openlistPopHead() {
 
 // ----------------------------------------------------------------------------
 inline void LPAStar::releaseNodesMemory() {
-  for (auto n : allNodes_table) {
-    delete(n.second);  // n is std::pair<Key, Data*>
-  }
-  allNodes_table.clear();
+//  for (auto n : allNodes_table) {
+//    delete(n.second);  // n is std::pair<Key, Data*>
+//  }
+//  allNodes_table.clear();
+// TODO: Implement support for that in XyzHolder
 }
 // ----------------------------------------------------------------------------
 
 
 // ----------------------------------------------------------------------------
 inline void LPAStar::printAllNodesTable() {
-  cout << "Printing all nodes in the hash table:" << endl;
-  for (auto n : allNodes_table) {
-    cout << "\t" << (n.second)->stateString() << " ; Address:" << (n.second) << endl;  // n is std::pair<Key, Data*>
-  }
+//  cout << "Printing all nodes in the hash table:" << endl;
+//  for (auto n : allNodes_table) {
+//    cout << "\t" << (n.second)->stateString() << " ; Address:" << (n.second) << endl;  // n is std::pair<Key, Data*>
+//  }
+// TODO: Add support for that in XytHolder
 }
 // ----------------------------------------------------------------------------
 
@@ -509,43 +501,53 @@ map_cols(other.map_cols),
 actions_offset(other.actions_offset),
 dcm(other.dcm),
 min_goal_timestep(other.min_goal_timestep),
-agent_id(other.agent_id)
+agent_id(other.agent_id),
+allNodes_table(other.allNodes_table.xy_size)
 {
     search_iterations = 0;
     num_expanded.push_back(0);
     paths.push_back(vector<int>());
     paths_costs.push_back(0);
     expandedHeatMap.push_back(vector<int>());
-    empty_node = new LPANode(*(other.empty_node));
-    deleted_node = new LPANode(*(other.deleted_node));
     // Create a deep copy of each node and store it in the new Hash table.
-    allNodes_table.set_empty_key(empty_node);
-    allNodes_table.set_deleted_key(deleted_node);
     // Map
-    for (auto n : other.allNodes_table) {
-        allNodes_table[n.first] = new LPANode(*(n.second));  // n is std::pair<Key, Data*>.
+    for (int i = 0; i < allNodes_table.xy_size ; ++i) {
+        if (other.allNodes_table.data[i] == nullptr)
+            continue;
+        for (auto [t, n]: *(other.allNodes_table.data[i])) {
+            auto copy = new LPANode(*n);
+            allNodes_table.set(i, t, copy);
+        }
     }
     // Reconstruct the OPEN list with the cloned nodes.
     // This is efficient enough since FibHeap has amortized constant time insert.
     for (auto it = other.open_list.ordered_begin(); it != other.open_list.ordered_end(); ++it) {
-        LPANode* n = allNodes_table[*it];
+        auto [found, n] = allNodes_table.get((*it)->loc_id_, (*it)->t_);
         n->openlist_handle_ = open_list.push(n);
     }
     // Update the backpointers of all cloned versions.
     // (before this its bp_ is the original pointer, but we can use the state in it to
     // retrieve the new clone from the newly built hash table).
-    for (auto n : allNodes_table) {
-        if (n.second->bp_ != nullptr) {
-            n.second->bp_ = allNodes_table[n.second->bp_];
+    for (int i = 0; i < allNodes_table.xy_size ; ++i) {
+        if (allNodes_table.data[i] == nullptr)
+            continue;
+        for (auto [t, n]: *(allNodes_table.data[i])) {
+            if (n->bp_ != nullptr) {
+                auto [found, bp] = allNodes_table.get(n->bp_->loc_id_, n->bp_->t_);
+                n->bp_ = bp;
+            }
         }
     }
     // Update start and goal nodes.
-    start_n = allNodes_table[other.start_n];
-    goal_n = allNodes_table[other.goal_n];
+    auto [found_start, start_n] = allNodes_table.get(other.start_n->loc_id_, other.start_n->t_);
+    start_n = start_n;
+    auto [found_goal, goal_n] = allNodes_table.get(other.goal_n->loc_id_, other.goal_n->t_);
+    goal_n = goal_n;
 
     for (auto possible_goal : other.possible_goals)
     {
-        possible_goals.push_back(allNodes_table[possible_goal]);
+        auto [found_possible_goal, possible_goal_n] = allNodes_table.get(possible_goal->loc_id_, possible_goal->t_);
+        possible_goals.push_back(possible_goal_n);
     }
 }
 // ----------------------------------------------------------------------------
@@ -554,8 +556,6 @@ agent_id(other.agent_id)
 // ----------------------------------------------------------------------------
 LPAStar::~LPAStar() {
   releaseNodesMemory();
-  delete(empty_node);
-  delete(deleted_node);
 }
 
 void LPAStar::updateGoal() {

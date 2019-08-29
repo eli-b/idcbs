@@ -15,6 +15,7 @@
 #include "dynamic_constraints_manager.h"
 #include "map_loader.h"
 #include "lpa_node.h"
+#include "XytHolder.h"
 
 using google::dense_hash_map;
 using std::hash;
@@ -30,9 +31,6 @@ class LPAStar {
 
   // heap<Data, Comparator>
   typedef boost::heap::fibonacci_heap< LPANode* , boost::heap::compare<LPANode::compare_node> > heap_open_t;
-
-  // dense_hash_map<Key, Data, HashFunction, EqualityTester>
-  typedef dense_hash_map<LPANode*, LPANode*, LPANode::LPANodeHasher, LPANode::eqnode> hashtable_t;
 
 // Data Members ---------------------------------------------------------------------------------------------
   int search_iterations;
@@ -55,11 +53,7 @@ class LPAStar {
   DynamicConstraintsManager dcm;
 
   heap_open_t open_list;
-  hashtable_t allNodes_table;
-
-  // Used in hash table (deleted in d'tor).
-  LPANode* empty_node;
-  LPANode* deleted_node;
+  XytHolder<LPANode*> allNodes_table;
 
   // nodes_comparator(a,b) returns false if 'a' has (strictly) lower priority than 'b'.
   LPANode::compare_node nodes_comparator;
