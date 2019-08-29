@@ -2169,24 +2169,19 @@ tuple<bool, bool> ICBSSearch::idcbsh_add_constraint_and_replan(ICBSNode *node, v
 	if (minNewCost - ((int)the_paths[node->agent_id]->size() - 1) > allowed_cost_increase)  // This check is instead of partial expansion
 		return make_tuple(false, false);
 
-	std::vector<std::unordered_map<int, AvoidanceState>>* catp = nullptr;
-#ifndef LPA
-#else
 	// The conflict-avoidance table already has the paths of all the agents
 	removePathFromConflictAvoidanceTable(the_paths[node->agent_id], the_cat);
-	catp = &the_cat;
-#endif
-	if (location2 < 0 || node->agent_id == agent1_id)
-		LL_num_generated += node->add_constraint(make_tuple(location1, location2, timestep, false), catp, true);
-	else
-		LL_num_generated += node->add_constraint(make_tuple(location2, location1, timestep, false), catp, true);
 
-	bool replan_success = findPathForSingleAgent(node, the_paths, &the_cat, timestep, minNewCost, node->agent_id);
-#ifndef LPA
-#else
+	// Constrain and replan
+	if (location2 < 0 || node->agent_id == agent1_id)
+		LL_num_generated += node->add_constraint(make_tuple(location1, location2, timestep, false), &the_cat, true);
+	else
+		LL_num_generated += node->add_constraint(make_tuple(location2, location1, timestep, false), &the_cat, true);
+
+	bool replan_success = findPathForSingleAgent(node, the_paths, &the_cat, timestep, minNewCost, node->agent_id, true);
+
     // Restore the conflict-avoidance table to have the paths of all the agents
     addPathToConflictAvoidanceTable(the_paths[node->agent_id], the_cat);
-#endif
 
 	if (!costMayIncrease && node->g_val > oldG)
 	{
