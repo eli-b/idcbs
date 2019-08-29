@@ -6,6 +6,7 @@
 #include <vector>
 
 #define LPA
+#define NOLPA_LATEST_CONFLICT_WITHIN_CLASS
 
 class ICBSNode
 {

@@ -637,7 +637,7 @@ std::shared_ptr<Conflict> ICBSSearch::getHighestPriorityConflict(const list<std:
 			}
 		}
 	}
-#ifndef LPA
+#if !defined(LPA) && !defined(NOLPA_LATEST_CONFLICT_WITHIN_CLASS)
 	else // uniformly at random
 	{
 		int id = rand() % confs.size();
