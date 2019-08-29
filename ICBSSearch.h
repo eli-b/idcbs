@@ -111,7 +111,7 @@ private:
 	void branch(ICBSNode* curr, ICBSNode* n1, ICBSNode*n2);
 	bool findPathForSingleAgent(ICBSNode *node, vector<vector<PathEntry> *> &the_paths,
 	                            vector<unordered_map<int, AvoidanceState >> *the_cat,
-	                            int timestep, int earliestGoalTimestep, int ag);
+	                            int timestep, int earliestGoalTimestep, int ag, bool skipNewpaths = false);
 	bool generateChild(ICBSNode *node, vector<vector<PathEntry> *> &the_paths);
 	bool finishPartialExpansion(ICBSNode *node, vector<vector<PathEntry> *> &the_paths);
 	void buildConflictAvoidanceTable(vector<vector<PathEntry> *> &the_paths, int exclude_agent, const ICBSNode &node,

@@ -1101,7 +1101,7 @@ bool ICBSSearch::generateChild(ICBSNode *node, vector<vector<PathEntry> *> &pare
 // plan a path for an agent in the node, also put the path in the_paths
 bool ICBSSearch::findPathForSingleAgent(ICBSNode *node, vector<vector<PathEntry> *> &the_paths,
                                         vector<unordered_map<int, AvoidanceState >> *the_cat,
-                                        int timestep, int earliestGoalTimestep, int ag)
+                                        int timestep, int earliestGoalTimestep, int ag, bool skipNewpaths)
 {
 	// extract all constraints on agent ag, and build constraint table
 	ICBSNode* curr = node;
@@ -1118,9 +1118,31 @@ bool ICBSSearch::findPathForSingleAgent(ICBSNode *node, vector<vector<PathEntry>
 	    the_cat = &local_scope_cat;
 	}
 
+	// Prepare the place we'll put the path
+    vector<PathEntry>* newPath = nullptr;
+    if (!skipNewpaths) {
+        // Linear lookup:
+        bool found = false;
+        auto it = node->new_paths.begin();
+        for ( ; it != node->new_paths.end(); ++it)
+            // Check if the agent has an empty path in new_paths. If it does, update its path entry.
+        {
+            if (it->first == ag && it->second.size() <= 1)  // trivial entry - replace it
+            {
+                found = true;
+                break;
+            }
+            if (it->first > ag)  // Passed it - insert here
+                break;
+        }
+        if (!found)
+            it = node->new_paths.emplace(it);  // Inserts before the iterator
+        it->first = ag;
+        newPath = &it->second;
+    } else
+        newPath = new vector<PathEntry>();
+
 	// A path w.r.t cons_table (and prioritize by the conflict-avoidance table).
-	pair<int, vector<PathEntry>> newPath;
-	newPath.first = ag;
 	bool foundSol;
 
 	// TODO: Pass the timeout to the low level
@@ -1129,7 +1151,7 @@ bool ICBSSearch::findPathForSingleAgent(ICBSNode *node, vector<vector<PathEntry>
 #ifndef LPA
 		clock_t ll_start = std::clock();
 		auto wall_ll_start = std::chrono::system_clock::now();
-		foundSol = search_engines[ag]->findShortestPath(newPath.second, cons_table, *the_cat,
+		foundSol = search_engines[ag]->findShortestPath(*newPath, cons_table, *the_cat,
 		                                                start, goal, earliestGoalTimestep, lastGoalConTimestep);
 		lowLevelTime += std::clock() - ll_start;
 		wall_lowLevelTime += std::chrono::system_clock::now() - wall_ll_start;
@@ -1149,18 +1171,18 @@ bool ICBSSearch::findPathForSingleAgent(ICBSNode *node, vector<vector<PathEntry>
 			wall_lowLevelTime += std::chrono::system_clock::now() - wall_ll_start;
 			if (foundSol) {
 				const vector<int> *primitive_path = node->lpas[ag]->getPath(node->lpas[ag]->paths.size() - 1);
-				newPath.second.resize(primitive_path->size());
+                newPath->resize(primitive_path->size());
 				for (int j = 0; j < primitive_path->size(); ++j) {
-					newPath.second[j].location = (*primitive_path)[j];
-					newPath.second[j].builtMDD = false;
+                    newPath->operator[](j).location = (*primitive_path)[j];
+                    newPath->operator[](j).builtMDD = false;
 				}
 				// Mark the first and last locations as "cardinal locations" regardless of the MDD:
-				newPath.second[0].builtMDD = true;
-				newPath.second[0].single = true;
-				newPath.second[0].numMDDNodes = 1;
-				newPath.second[primitive_path->size() - 1].builtMDD = true;
-				newPath.second[primitive_path->size() - 1].single = true;
-				newPath.second[primitive_path->size() - 1].numMDDNodes = 1;
+                newPath->operator[](0).builtMDD = true;
+                newPath->operator[](0).single = true;
+                newPath->operator[](0).numMDDNodes = 1;
+                newPath->operator[](primitive_path->size() - 1).builtMDD = true;
+                newPath->operator[](primitive_path->size() - 1).single = true;
+                newPath->operator[](primitive_path->size() - 1).numMDDNodes = 1;
 			}
 			LL_num_expanded += node->lpas[ag]->num_expanded[node->lpas[ag]->paths.size() - 1];
 			LL_num_generated += node->lpas[ag]->allNodes_table.size() - generated_before;
@@ -1176,7 +1198,7 @@ bool ICBSSearch::findPathForSingleAgent(ICBSNode *node, vector<vector<PathEntry>
 			}
 			clock_t ll_start = std::clock();
 			auto wall_ll_start = std::chrono::system_clock::now();
-			foundSol = search_engines[ag]->findShortestPath(newPath.second, cons_table, *the_cat, start, goal,
+			foundSol = search_engines[ag]->findShortestPath(*newPath, cons_table, *the_cat, start, goal,
 			                                                earliestGoalTimestep, lastGoalConTimestep);
 			lowLevelTime += std::clock() - ll_start;
 			wall_lowLevelTime += std::chrono::system_clock::now() - wall_ll_start;
@@ -1189,7 +1211,7 @@ bool ICBSSearch::findPathForSingleAgent(ICBSNode *node, vector<vector<PathEntry>
 	{
 		clock_t ll_start = std::clock();
 		auto wall_ll_start = std::chrono::system_clock::now();
-		foundSol = search_engines[ag]->findPath(newPath.second, cons_table, *the_cat, start, goal, lowlevel_hval::DH);
+		foundSol = search_engines[ag]->findPath(*newPath, cons_table, *the_cat, start, goal, lowlevel_hval::DH);
 		lowLevelTime += std::clock() - ll_start;
 		wall_lowLevelTime += std::chrono::system_clock::now() - wall_ll_start;
 		LL_num_expanded += search_engines[ag]->num_expanded;
@@ -1198,31 +1220,17 @@ bool ICBSSearch::findPathForSingleAgent(ICBSNode *node, vector<vector<PathEntry>
 
 	if (!foundSol)
 		return false;
-	
-	// update new_paths, the_paths and g_val
-	bool inserted = false;
-	for (list<pair<int, vector<PathEntry>>>::iterator it = node->new_paths.begin(); it != node->new_paths.end(); ++it)
-	// Check if the agent has an empty path in new_paths. If it does, update its path entry.
-	{
-		if (it->first == newPath.first && it->second.size() <= 1)
-		{
-			node->g_val = node->g_val - (int)the_paths[ag]->size() + (int)newPath.second.size();
-			it->second = newPath.second;
-			the_paths[ag] = &it->second;
-			inserted = true;
-			break;
-		}
-	}
-	if (!inserted)  // The agent did have an entry or its entry was non-trivial
-	{
-		node->g_val = node->g_val - (int)the_paths[ag]->size() + (int)newPath.second.size();
-		node->new_paths.push_back(newPath);
-		the_paths[ag] = &node->new_paths.back().second;
-	}
 
-	node->makespan = max(node->makespan, (int)newPath.second.size() - 1);
+    // update the_paths, g_val, and makespan
+    node->g_val = node->g_val - (int) the_paths[ag]->size() + (int) newPath->size();
+    if (skipNewpaths && the_paths[ag] != &paths_found_initially[ag])
+        delete the_paths[ag];
+    the_paths[ag] = newPath;
+    node->makespan = max(node->makespan, (int)newPath->size() - 1);
+
 	if (screen)
 		this->printPaths(the_paths);
+
 	return true;
 }
 
