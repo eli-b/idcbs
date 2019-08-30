@@ -1,7 +1,7 @@
 from itertools import product
 import subprocess
 from os.path import basename, exists, join, abspath
-from os import getcwd
+from os import getcwd, getuid, getgid
 import time
 
 #build = 'debug'
@@ -69,7 +69,7 @@ for obstacle_percent, grid_dimension_size, num_agents, i in product(obstacle_per
         # GLOG_logtostderr=1  ./cmake-...
         # docker run --memory-swap=10g to avoid swapping
         cmd = f'docker run --rm -it --memory=8g --memory-swap=8g -v {agents_dir}:/agents ' \
-              f'-v {maps_dir}:/maps -v {output_dir}:/output ' \
+              f'-v {maps_dir}:/maps -v {output_dir}:/output --user="{getuid()}:{getgid()}" ' \
               f'search/mapf:cbs-lpa ' \
               f'{executable_path} -m "/maps/{map_file_name}" ' \
               f'-a "/agents/{agents_file_name}" ' \
@@ -79,7 +79,7 @@ for obstacle_percent, grid_dimension_size, num_agents, i in product(obstacle_per
         try:
             subprocess.check_call(cmd, shell=True)
         except subprocess.CalledProcessError as e:
-            if e.returncode == 137:  # Killed by the OOM killer, IIRC, shouldn't happen now with the memory limit
+            if e.returncode == 137:  # Killed by the OOM killer
                 with open(output_file_path, 'a') as f:
                     f.write('=NA(),' * 10 + f'same as above,{agents_file_path}\n')
             else:
