@@ -3,11 +3,12 @@
 
 class MapLoader {
  public:
-  bool* my_map;
+  bool* my_map;  // true means a cell is blocked
   int rows;
   int cols;
   int start_loc;
   int goal_loc;
+  std::string name;
 
   enum valid_moves_t { NORTH, EAST, SOUTH, WEST, WAIT_MOVE, MOVE_COUNT };  // MOVE_COUNT is the enum's size
   int* moves_offset;
