@@ -62,24 +62,29 @@ bool MDD::buildMDD(const std::vector < std::unordered_map<int, ConstraintState >
 	// Backward
 	for (int t = numOfLevels - 1; t > 0; t--)
 	{
-		for (list<MDDNode*>::iterator it = levels[t].begin(); it != levels[t].end(); ++it)
+		for (auto it = levels[t].begin() ; it != levels[t].end() ; )
 		{
-			for (list<MDDNode*>::iterator parent = (*it)->parents.begin(); parent != (*it)->parents.end(); parent++)
+            auto node = *it;
+		    if (node->children.empty() && t != (numOfLevels - 1)) {  // Useless node
+                // Delete the node
+                delete node;
+                // Delete it from the level and continue
+                it = levels[t].erase(it);
+                continue;
+		    }
+
+			for (auto parent : node->parents)
 			{
-				if ((*parent)->children.empty()) // a new node
+				if (parent->children.empty()) // a new node in the mdd
 				{
-					levels[t - 1].push_back(*parent);
+					levels[t - 1].push_back(parent);
 				}
-				(*parent)->children.push_back(*it); // add forward edge	
+				parent->children.push_back(node); // add forward edge
 			}
+            ++it;
 		}
 	}
 
-	// Delete useless nodes (nodes who don't have any children)
-	for (list<MDDNode*>::iterator it = closed.begin(); it != closed.end(); ++it)
-		if ((*it)->children.empty() && (*it)->level < numOfLevels - 1)
-			delete *it;
-	closed.clear();
 	return true;
 }
 
