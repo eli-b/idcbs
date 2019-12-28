@@ -462,14 +462,20 @@ std::shared_ptr<Conflict> ICBSSearch::classifyConflicts(ICBSNode &node, vector<v
 		bool cardinal1, cardinal2;
 		if (loc2 >= 0) // Edge conflict
 		{
-			buildMDD(node, the_paths, agent1, timestep);  // Build an MDD for the agent's current cost, unless we already know if it's narrow at <timestep>
-			buildMDD(node, the_paths, agent2, timestep);
-			buildMDD(node, the_paths, agent1, timestep - 1);  // Build an MDD for the agent's current cost, unless we already know if it's narrow at <timestep - 1>
-			buildMDD(node, the_paths, agent2, timestep - 1);
-			cardinal1 = the_paths[agent1]->at(timestep).single &&
-				the_paths[agent1]->at(timestep - 1).single;
-			cardinal2 = the_paths[agent2]->at(timestep).single &&
-				the_paths[agent2]->at(timestep - 1).single;
+			bool success = buildMDD(node, agent1, timestep, 0, cat);  // Build an MDD for the agent's current cost, unless we already know if it's narrow at <timestep>
+			if (!success)
+			    break;
+			success = buildMDD(node, agent2, timestep, 0, cat);
+            if (!success)
+                break;
+			success = buildMDD(node, agent1, timestep - 1, 0, cat);  // Build an MDD for the agent's current cost, unless we already know if it's narrow at <timestep - 1>
+            if (!success)
+                break;
+			success = buildMDD(node, agent2, timestep - 1, 0, cat);
+            if (!success)
+                break;
+			cardinal1 = a1_path[timestep].single && a1_path[timestep - 1].single;
+			cardinal2 = a2_path[timestep].single && a2_path[timestep - 1].single;
 		}
 		else // vertex conflict
 		{
@@ -477,15 +483,19 @@ std::shared_ptr<Conflict> ICBSSearch::classifyConflicts(ICBSNode &node, vector<v
 				cardinal1 = true;
 			else
 			{
-				buildMDD(node, the_paths, agent1, timestep);
-				cardinal1 = the_paths[agent1]->at(timestep).single;
+				bool success = buildMDD(node, agent1, timestep, 0, cat);
+                if (!success)
+                    break;
+				cardinal1 = a1_path[timestep].single;
 			}
 			if (timestep >= the_paths[agent2]->size())
 				cardinal2 = true;
 			else
 			{
-				buildMDD(node, the_paths, agent2, timestep);
-				cardinal2 = the_paths[agent2]->at(timestep).single;
+				bool success = buildMDD(node, agent2, timestep, 0, cat);
+                if (!success)
+                    break;
+				cardinal2 = a2_path[timestep].single;
 			}
 		}
 		if (cardinal1 && cardinal2)
@@ -710,9 +720,12 @@ void ICBSSearch::buildMDD(ICBSNode &curr, vector<vector<PathEntry> *> &the_paths
 	std::clock_t mdd_building_start = std::clock();
 	auto wall_mddStart = std::chrono::system_clock::now();
 	MDD mdd;
-	mdd.buildMDD(cons_table, start, goal, lookahead, *search_engines[ag]);
-	highLevelMddBuildingTime += std::clock() - mdd_building_start;
-	wall_mddTime = std::chrono::system_clock::now() - wall_mddStart;
+	bool success = mdd.buildMDD(cons_table, start_location_and_time, goal_location_and_time, lookahead, *search_engines[ag], start + time_limit * CLOCKS_PER_SEC);
+	if (!success) {
+        highLevelMddBuildingTime += std::clock() - mdd_building_start;
+        wall_mddTime += std::chrono::system_clock::now() - wall_mddStart;
+        return false;
+    }
 
 	for (int i = 0; i < mdd.levels.size(); i++)
 	{
@@ -720,6 +733,10 @@ void ICBSSearch::buildMDD(ICBSNode &curr, vector<vector<PathEntry> *> &the_paths
 		the_paths[ag]->at(i + start.second).numMDDNodes = (int)mdd.levels[i].size();
 		the_paths[ag]->at(i + start.second).builtMDD = true;
 	}
+    highLevelMddBuildingTime += std::clock() - mdd_building_start;
+    wall_mddTime += std::chrono::system_clock::now() - wall_mddStart;
+
+    return true;
 }
 
 int ICBSSearch::countMddSingletons(int agent_id, int conflict_timestep)

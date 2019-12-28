@@ -1,18 +1,29 @@
 #include "MDD.h"
 
+// Returns whether building was successful (false if it timed out)
 bool MDD::buildMDD(const std::vector < std::unordered_map<int, ConstraintState > >& cons_table,
-	const pair<int, int> &start, const pair<int, int>&goal, int lookahead, const ICBSSingleAgentLLSearch & solver)
+	const pair<int, int> &start, const pair<int, int>&goal, int lookahead, const ICBSSingleAgentLLSearch & solver, clock_t end_by)
 {
 	int numOfLevels = goal.second - start.second + lookahead + 1;
 	int current_cost = goal.second - start.second;
-	MDDNode* root = new MDDNode(start.first, nullptr); // Root
+	auto root = new MDDNode(start.first, nullptr); // Root
 	queue<MDDNode*> open;
-	list<MDDNode*> closed;
+    typedef google::dense_hash_map<MDDNode*, MDDNode*, MDDNode::NodeHasher, MDDNode::eqnode> hashtable_t;
+    hashtable_t closed;
+    auto empty_node = new MDDNode(-1, nullptr);
+    auto deleted_node = new MDDNode(-2, nullptr);
+    closed.set_empty_key(empty_node);
+    closed.set_deleted_key(deleted_node);
 	open.push(root);
-	closed.push_back(root);
+	closed[root] = root;
 	levels.resize(numOfLevels);
-	while (!open.empty()) //BFS from root node
+	while (!open.empty())  // BFS from root node
 	{
+	    if (std::clock() > end_by) {
+            cerr << "Timed out building an MDD!" << endl;
+            break;
+        }
+
 		MDDNode* node = open.front();
 		open.pop();
 
@@ -23,7 +34,7 @@ bool MDD::buildMDD(const std::vector < std::unordered_map<int, ConstraintState >
 			levels[numOfLevels - 1].push_back(node);
 			break;
 		}
-		int heuristicBound = numOfLevels - node->level - 2; // We want (g + 1)+h <= f = numOfLevels - 1, so h <= numOfLevels - g. -1 because it's the bound of the _children_.
+		int heuristicBound = numOfLevels - node->level - 2; // We want (g + 1) + h <= f = numOfLevels - 1, so h <= numOfLevels - g. -1 because it's the bound of the _children_.
 		if (heuristicBound < 0)
 		{
 			std::cout << "heuristic bound is negative!" << std::endl; // Will it happen?
@@ -36,30 +47,34 @@ bool MDD::buildMDD(const std::vector < std::unordered_map<int, ConstraintState >
 			int next_timestep = node->level + 1 + start.second;
 			if (0 <= newLoc && newLoc < solver.map_size && abs(newLoc % solver.num_col - node->location % solver.num_col) < 2)
 			{
-				if (solver.getDifferentialHeuristic(newLoc, goal.first) > heuristicBound)
+			    int newH = solver.getDifferentialHeuristic(newLoc, goal.first);
+				if (newH > heuristicBound)
 					continue;
 				else if (solver.isConstrained(i, newLoc, next_timestep, cons_table))
 					continue;
 
-				list<MDDNode*>::reverse_iterator child = closed.rbegin();
-				bool find = false;
-				for (; child != closed.rend() && ((*child)->level == node->level + 1); ++child)
-					if ((*child)->location == newLoc) // If the child node exists
-					{
-						(*child)->parents.push_back(node); // then add corresponding parent link and child link
-						find = true;
-						break;
-					}
-				if (!find) // Else generate a new mdd node
+                auto childNode = new MDDNode(newLoc, node);
+                auto it = closed.find(childNode);
+				if (it != closed.end()) // If the child node exists
+                {
+				    delete childNode;
+                    (*it).second->parents.push_back(node); // then add corresponding parent link to it
+                }
+				else // generate a new mdd node
 				{
-					MDDNode* childNode = new MDDNode(newLoc, node);
 					open.push(childNode);
-					closed.push_back(childNode);
+					closed[childNode] = childNode;
 				}
 			}
 		}
 	}
-	// Backward
+	if (levels[numOfLevels - 1].empty()) {  // Timed out or goal can't be reached in given number of steps
+        for (auto node : closed)
+	        delete node.second;
+        return false;
+	}
+
+	// Backward sweep: levels[numOfLevels-1] is the only non-empty level at the moment, and contains the goal node
 	for (int t = numOfLevels - 1; t > 0; t--)
 	{
 		for (auto it = levels[t].begin() ; it != levels[t].end() ; )
@@ -111,12 +126,12 @@ bool MDD::updateMDD(const tuple<int, int, int> &constraint, int num_col)
 	else // Vertex constraint
 	{
 		list<MDDNode*> ToDelete;
-		for (list<MDDNode*>::iterator it = levels[t].begin(); it != levels[t].end(); ++it)
-			if (loc1 / num_col <= (*it)->location / num_col  && (*it)->location / num_col <= loc2 / num_col
-				&& loc1 % num_col <= (*it)->location % num_col  && (*it)->location % num_col <= loc2 % num_col)
-				ToDelete.push_back(*it);
-		for (list<MDDNode*>::iterator it = ToDelete.begin(); it !=ToDelete.end(); ++it)
-			deleteNode(*it);
+		for (auto node : levels[t])
+			if (loc1 / num_col <= (node)->location / num_col  && node->location / num_col <= loc2 / num_col
+				&& loc1 % num_col <= (node)->location % num_col  && node->location % num_col <= loc2 % num_col)
+				ToDelete.push_back(node);
+		for (auto node : ToDelete)
+			deleteNode(node);
 		return true;
 	}
 	return false;
