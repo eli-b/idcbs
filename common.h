@@ -54,8 +54,3 @@ struct ConstraintState
     bool edge[5] = { false, false, false, false, false };
 };
 
-struct AvoidanceState
-{
-    uint8_t vertex = 0;
-    uint8_t edge[5] = { 0, 0, 0, 0, 0 };
-};
