@@ -1,27 +1,25 @@
 #pragma once
 
-#include <boost/graph/adjacency_list.hpp>
-#include <boost/graph/graph_traits.hpp>
 #include <boost/heap/fibonacci_heap.hpp>
-#include <boost/tokenizer.hpp>
 #include <google/dense_hash_map>
 
 #include <cassert>
 #include <fstream>
-#include <stdlib.h>
-#include <stdio.h>
+#include <cstdlib>
+#include <cstdio>
 #include <string>
 #include <vector>
 #include <iostream>
 #include <list>
 #include <functional>  // for std::hash (c++11 and above)
-#include <time.h>
+#include <ctime>
 #include <memory> // for std::shared_ptr
 #include <map>
 #include <cstring>
 #include <algorithm>
-#include <ctime>
 
+// FIXME: Too many includes above
+// FIXME: This file should be renamed to ICBSCommon.h
 
 enum split_strategy { NON_DISJOINT, RANDOM, SINGLETONS, WIDTH, DISJOINT3, SPLIT_COUNT };
 
