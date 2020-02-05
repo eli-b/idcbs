@@ -25,7 +25,7 @@ public:
 
   // dyn_constraints[i] is a list of disallowed <from_id,to_id> transitions for timestep i.
   // Meaning arriving to to_id from from_id at time i is disallowed.
-  vector < list< pair<int, int> > > dyn_constraints_;
+  vector<list<pair<int, int>>> dyn_constraints_;
 
   // A reference to the environment (so we can convert Vertex constraints to Edge constraints).
   const MapLoader* ml_;
@@ -39,7 +39,7 @@ public:
 
 /* Returns true if the move <curr_id, next_id, next_t> is valid w.r.t. dyn_constraints.
 */
-  // Returns true if the move from from_id (being there at ts) to to_id (getting there at next_ts) is valid
+  // Returns true if the move from from_id (being there at ts) to to_id (getting there at next_ts) is not valid
   bool isDynCons(int curr_id, int next_id, int next_timestep);
 
   void setML(const MapLoader* ml) {ml_ = ml;}
@@ -48,7 +48,7 @@ public:
   ~DynamicConstraintsManager();  // D'tor.
 
 private:
-  // Both constraint methods above use this one. Assumes <from,to,ts> is otherwise a valid move! (that is, from/to are not a blocked cell.)
+  // Both constraint methods above use this one. Assumes <from,to,ts> is otherwise a valid move! (that is, from/to are not a blocked cell)
   void addDynConstraint(int from_id, int to_id, int ts);
   void popDynConstraint(int from_id, int to_id, int ts);
 

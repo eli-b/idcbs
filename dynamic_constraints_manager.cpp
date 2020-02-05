@@ -72,7 +72,7 @@ void DynamicConstraintsManager::addDynConstraint(int from_id, int to_id, int ts)
 		dyn_constraints_.resize(ts+1, list< pair<int,int> >());
 	}
  	// Add it to the list of dynamic constraints.
-	dyn_constraints_[ts].push_back(make_pair(from_id, to_id));
+	dyn_constraints_[ts].emplace_back(from_id, to_id);
 }
 
 void DynamicConstraintsManager::popDynConstraint(int from_id, int to_id, int ts) {
