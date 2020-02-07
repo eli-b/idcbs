@@ -11,7 +11,7 @@ struct PathEntry
 	bool single; // it is the singleton in its MDD
 	int numMDDNodes; // number of MDD nodes at the given timestep
 	bool builtMDD; // only when builtMDD is true, single is useful.
-	PathEntry(){location = -1; builtMDD= false; single = false; numMDDNodes = 0;}
+	PathEntry() {location = -1; builtMDD = false; single = false; numMDDNodes = 0;}
 };
 
 class ICBSSingleAgentLLNode

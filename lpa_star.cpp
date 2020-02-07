@@ -295,7 +295,7 @@ inline std::pair<bool, LPANode*> LPAStar::retrieveNode(int loc_id, int t, bool c
     //temp_n->initState();  -- already done correctly in construction above.
     allNodes_table.set(loc_id, t, n);
     VLOG(11) << "\t\t\t\t\tallNodes_table: Added new node" << n->nodeString();
-    return (make_pair(false, n));
+    return make_pair(false, n);
   }
 }
 // ----------------------------------------------------------------------------

@@ -63,7 +63,7 @@ int ICBSSingleAgentLLSearch::extractLastGoalTimestep(int goal_location, const ve
 			{
 			    auto [loc1, loc2, positive_constraint] = *it;
 				if (loc1 == goal_location && loc2 < 0 && !positive_constraint) {
-					return (t);
+					return t;
 				}
 			}
 		}
@@ -261,7 +261,7 @@ bool ICBSSingleAgentLLSearch::findShortestPath(vector<PathEntry> &path,
 				}
 				else
 				{  // update existing node's if needed (only in the open_list)
-					delete(next);  // not needed anymore -- we already generated it before
+					delete next;  // not needed anymore -- we already generated it before
 					ICBSSingleAgentLLNode* existing_next = (*it).second;
 					if (existing_next->in_openlist == true) // if its in the open list
 					{ 

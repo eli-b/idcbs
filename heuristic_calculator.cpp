@@ -12,7 +12,7 @@ using boost::heap::fibonacci_heap;
 HeuristicCalculator::HeuristicCalculator(int start_location, int goal_location,
 	const bool* my_map, int map_rows, int map_cols, const int* moves_offset) :
     my_map(my_map), map_rows(map_rows), map_cols(map_cols), moves_offset(moves_offset),
-	start_location(start_location), goal_location(goal_location){}
+	start_location(start_location), goal_location(goal_location) {}
 
 void HeuristicCalculator::computeHVals(int* res)
 {

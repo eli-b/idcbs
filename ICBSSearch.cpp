@@ -1845,7 +1845,7 @@ std::tuple<ICBSNode *, bool> ICBSSearch::generateChild(ICBSNode *child, Conflict
 		}
 		for (int i = 0; i < 2 && a[i] >= 0; i++)
 		{
-			if (loc2 < 0 && timestep > parent_paths[a[i]]->size())  // The agent is forced out of its goal - the cost will surely increase
+			if (loc2 < 0 && timestep >= parent_paths[a[i]]->size())  // The agent is forced out of its goal - the cost will surely increase
 				// FIXME: Assumes the cost function is sum-of-costs
 			{
 				// Partial expansion - delay path finding:
@@ -2815,7 +2815,7 @@ void ICBSSearch::findShortestPathFromPrevNodeToCurr(ICBSNode *curr, ICBSNode* pr
 }
 
 // RUN CBS
-bool ICBSSearch::runICBSSearch() 
+bool ICBSSearch::runICBSSearch()
 {
 	if (HL_heuristic)
 #ifndef LPA
@@ -3896,7 +3896,7 @@ ICBSSearch::ICBSSearch(const MapLoader &ml, const AgentsLoader &al, double focal
 #endif
 
 	// initialize single agent search solver and heuristics for the low-level search
-	for (int i = 0; i < num_of_agents; i++) 
+	for (int i = 0; i < num_of_agents; i++)
 	{
 		int init_loc = ml.linearize_coordinate((al.initial_locations[i]).first, (al.initial_locations[i]).second);
 		int goal_loc = ml.linearize_coordinate((al.goal_locations[i]).first, (al.goal_locations[i]).second);
