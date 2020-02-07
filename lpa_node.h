@@ -23,8 +23,7 @@ class LPANode {
   float h_ = 0;
   LPANode* bp_ = nullptr;  // The best predecessor, if found, in terms of v(pred)+c(pred,this)
   int t_ = -1;
-  int conflicts_ = 0;
-  int num_internal_conf_ = 0;  // used in ECBS and iECBS
+  int conflicts_ = 0;  // used in CBS and IDCBS tiebreaking. Counts conflicts on the best known path from from start to this node.
   bool in_openlist_ = false;  // *not* used in Focal Search (reexpansions are required)
   bool is_truncated_ = false;  // used in TLPA*
   float g_pi_ = std::numeric_limits<float>::max();  // used in TLPA*
@@ -42,7 +41,7 @@ class LPANode {
     bool operator()(const LPANode* n1, const LPANode* n2) const {
       if ( n1->getKey1() == n2->getKey1() ) {
           if ( n1->getKey2() == n2->getKey2() )
-              return n1->getKey3() >= n2->getKey3();  // break ties towards *lower* g-vals and lower number of conflicts
+              return n1->getKey3() >= n2->getKey3();  // break ties towards *lower* g-vals and lower number of conflicts - remove this once LPA* starts using the FOCAL list
           return n1->getKey2() > n2->getKey2();  // break ties towards *lower* g-vals
       }
       return n1->getKey1() > n2->getKey1();
@@ -54,12 +53,12 @@ class LPANode {
   struct secondary_compare_node {
     // returns true if n1 > n2
     bool operator()(const LPANode* n1, const LPANode* n2) const {
-      if (n1->num_internal_conf_ == n2->num_internal_conf_) {
+      if (n1->conflicts_ == n2->conflicts_) {
         if (n1->g_ + n1->h_ == n2->g_ + n2->h_)
-          return n1->g_ <= n2->g_;  // break ties towards larger g_vals
+          return n1->g_ <= n2->g_;  // break ties towards *larger* g_vals
         return n1->g_ + n1->h_ >= n2->g_ + n2->h_;  // break ties towards smaller f_vals (prefer shorter solutions)
       }
-      return n1->num_internal_conf_ >= n2->num_internal_conf_;  // n1 > n2 if it has more conflicts
+      return n1->conflicts_ >= n2->conflicts_;  // Prefer fewer conflicts
     }
   };  // used by FOCAL (heap) to compare nodes (top of the heap has min number-of-conflicts)
 
@@ -85,7 +84,7 @@ class LPANode {
 
   inline float getKey2() const {return std::min(g_, v_);}
 
-  inline float getKey3() const {return this->conflicts_;}
+  inline float getKey3() const {return this->conflicts_;}  // Only here until LPA* starts using the focal list
 
   inline void initState() {
     g_ = std::numeric_limits<float>::max();

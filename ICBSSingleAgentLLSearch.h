@@ -1,6 +1,7 @@
 #pragma once
 #include "ICBSSingleAgentLLNode.h"
 #include "map_loader.h"
+#include "conflict_avoidance_table.h"
 
 class ICBSSingleAgentLLSearch
 {
@@ -32,17 +33,17 @@ public:
 	int num_of_conf;
 	int num_col;
 
-	vector<int> my_heuristic;  // this is the precomputed heuristic for this agent
-	vector<vector<int>*> differential_h; //Used for differential heuristics
+	int* my_heuristic;  // this is the precomputed heuristic for this agent
+	vector<int*> differential_h; // Used for differential heuristics
 
 	 // path finding
 	bool findPath(vector<PathEntry> &path,
 		const std::vector < std::unordered_map<int, ConstraintState > >& cons_table, 
-		const std::vector < std::unordered_map<int, AvoidanceState > >& cat,
+		ConflictAvoidanceTable& cat,
 		const pair<int, int> &start, const pair<int, int>&goal, lowlevel_hval h_type);
 	bool findShortestPath(vector<PathEntry> &path, 
 		const std::vector < std::unordered_map<int, ConstraintState > >& cons_table,
-		const std::vector < std::unordered_map<int, AvoidanceState > >& cat,
+		ConflictAvoidanceTable& cat,
 		const pair<int, int> &start, const pair<int, int>&goal, int earliestGoalTimestep, int lastGoalConsTime);
 	
 	// tools
@@ -54,7 +55,7 @@ public:
 	inline void releaseClosedListNodes(hashtable_t& allNodes_table);
 
 
-	ICBSSingleAgentLLSearch(int start_location, int goal_location, const bool* my_map, int map_row, int num_col, const int* moves_offset);
+	ICBSSingleAgentLLSearch(int start_location, int goal_location, const bool* my_map, int map_row, int num_col, const int* moves_offset, int* my_heuristic);
 	~ICBSSingleAgentLLSearch();
 
 };

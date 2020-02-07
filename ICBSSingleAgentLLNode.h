@@ -84,7 +84,7 @@ public:
 		}
 	};
 
-	// The following is used by googledensehash for generating the hash value of a nodes
+	// The following is used by googledensehash for generating the hash value of a node
 	struct NodeHasher
 	{
 		std::size_t operator()(const ICBSSingleAgentLLNode* n) const

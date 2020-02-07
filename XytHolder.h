@@ -7,6 +7,9 @@
 #include <exception>
 #include <iostream>
 
+/// Stores T instances by location and time.
+/// Since every timestep is sparse (most locations at each timestep are unused),
+/// for each location, we map the timestep they're used in to the T instance.
 template <class T>
 class XytHolder {
 public:
@@ -33,6 +36,9 @@ public:
         }
     }
 
+    // TODO: Implement an iterator and begin and end methods:
+
+    // Returns <true,requested item> or <false,nullptr> when it's missing
     std::tuple<bool, T> get(int location_id, int t) {  // FIXME: Yes, passing by copy
         // Linear lookup
         if (data[location_id] == nullptr)

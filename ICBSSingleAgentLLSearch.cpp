@@ -2,7 +2,7 @@
 #include "conflict_avoidance_table.h"
 
 
-// Put the path to the give goal node in the <path> vector
+// Put the path to the given goal node in the <path> vector
 void ICBSSingleAgentLLSearch::updatePath(const ICBSSingleAgentLLNode* goal, vector<PathEntry> &path)
 {
 	const ICBSSingleAgentLLNode* curr = goal;
@@ -43,7 +43,7 @@ int ICBSSingleAgentLLSearch::getDifferentialHeuristic(int loc1, int loc2) const
 	int h = 0, sub;
 	for (int i = 0; i < differential_h.size(); i++)
 	{
-		sub = abs(differential_h[i]->at(loc1) - differential_h[i]->at(loc2));
+		sub = abs(differential_h[i][loc1] - differential_h[i][loc2]);
 		if (sub > h)
 			h = sub;
 	}
@@ -82,13 +82,16 @@ bool ICBSSingleAgentLLSearch::isConstrained(int direction, int next_id, int next
 		return true;
 	else if (next_timestep >= cons_table.size())
 		return false;
-	auto it = cons_table[next_timestep].find(next_id);
-	if (it == cons_table[next_timestep].end())
-		return false;
-	else if (it->second.vertex || it->second.edge[direction])
-		return true;
-	else 
-		return false;
+	auto next_timestep_it = cons_table[next_timestep].find(next_id);
+    int loc_id = next_id - moves_offset[direction];
+    auto source_timestep_it = cons_table[next_timestep - 1].find(loc_id);
+    // Check if there's a vertex constraint on next_id in the source and next timestep
+    if ((next_timestep_it != cons_table[next_timestep].end() && next_timestep_it->second.vertex) ||
+        (source_timestep_it != cons_table[next_timestep - 1].end() && source_timestep_it->second.vertex))
+        return true;
+
+    // Check if there's an edge constraint on entering next_id in next_timestep
+	return next_timestep_it != cons_table[next_timestep].end() && next_timestep_it->second.edge[direction];
 }
 
 // find a path from location start.first at timestep start.second to location goal.first at timestep goal.second
@@ -100,7 +103,7 @@ bool ICBSSingleAgentLLSearch::isConstrained(int direction, int next_id, int next
 // This is used to re-plan a (sub-)path between two positive constraints.
 bool ICBSSingleAgentLLSearch::findPath(vector<PathEntry> &path,
 	const std::vector < std::unordered_map<int, ConstraintState > >& cons_table,
-	const std::vector < std::unordered_map<int, AvoidanceState > >& cat,
+	ConflictAvoidanceTable& cat,
 	const pair<int, int> &start, const pair<int, int>&goal, lowlevel_hval h_type)
 {
 	num_expanded = 0;
@@ -150,7 +153,7 @@ bool ICBSSingleAgentLLSearch::findPath(vector<PathEntry> &path,
 				if (next_timestep + next_h_val > goal.second) // the node cannot reach the goal node at time goal.second
 					continue;
 				int next_internal_conflicts = curr->num_internal_conf +
-					numOfConflictsForStep(curr->loc, next_id, next_timestep, cat, moves_offset);
+					cat.num_conflicts_for_step(curr->loc, next_id, next_timestep);
 
 				// generate (maybe temporary) node
 				ICBSSingleAgentLLNode* next = new ICBSSingleAgentLLNode(next_id, next_g_val, next_h_val, curr,
@@ -192,7 +195,7 @@ bool ICBSSingleAgentLLSearch::findPath(vector<PathEntry> &path,
 // return true if a path was found (and update path) or false if no path exists
 bool ICBSSingleAgentLLSearch::findShortestPath(vector<PathEntry> &path,
 	const std::vector < std::unordered_map<int, ConstraintState > >& cons_table,
-	const std::vector < std::unordered_map<int, AvoidanceState > >& cat,
+	ConflictAvoidanceTable& cat,
 	const pair<int, int> &start, const pair<int, int>&goal, int earliestGoalTimestep, int lastGoalConsTime)
 {
 	num_expanded = 0;
@@ -242,7 +245,7 @@ bool ICBSSingleAgentLLSearch::findShortestPath(vector<PathEntry> &path,
 				int next_g_val = curr->g_val + 1;
 				int next_h_val = my_heuristic[next_id];
 				int next_internal_conflicts = curr->num_internal_conf + 
-					numOfConflictsForStep(curr->loc, next_id, next_timestep, cat, moves_offset);
+					cat.num_conflicts_for_step(curr->loc, next_id, next_timestep);
 				
 				// generate (maybe temporary) node
 				ICBSSingleAgentLLNode* next = new ICBSSingleAgentLLNode(next_id, next_g_val, next_h_val, curr, next_timestep, next_internal_conflicts, false);		
@@ -316,9 +319,9 @@ inline void ICBSSingleAgentLLSearch::releaseClosedListNodes(hashtable_t& allNode
 }
 
 ICBSSingleAgentLLSearch::ICBSSingleAgentLLSearch(int start_location, int goal_location,
-	const bool* my_map, int num_row, int num_col, const int* moves_offset):
+	const bool* my_map, int num_row, int num_col, const int* moves_offset, int* my_heuristic):
 		my_map(my_map), moves_offset(moves_offset), start_location(start_location), goal_location(goal_location),
-		num_col(num_col)
+		num_col(num_col), my_heuristic(my_heuristic)
 {
 	this->map_size = num_row * num_col;
 
@@ -336,4 +339,5 @@ ICBSSingleAgentLLSearch::~ICBSSingleAgentLLSearch()
 {
 	delete empty_node;
 	delete deleted_node;
+	delete [] my_heuristic;
 }

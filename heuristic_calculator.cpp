@@ -1,3 +1,5 @@
+#include <limits>
+
 #include "heuristic_calculator.h"
 #include "ICBSSingleAgentLLNode.h"
 
@@ -12,25 +14,30 @@ HeuristicCalculator::HeuristicCalculator(int start_location, int goal_location,
     my_map(my_map), map_rows(map_rows), map_cols(map_cols), moves_offset(moves_offset),
 	start_location(start_location), goal_location(goal_location){}
 
-void HeuristicCalculator::getHVals(vector<int>& res)
+void HeuristicCalculator::computeHVals(int* res)
 {
 	int root_location = goal_location;
-	res.resize(map_rows * map_cols);
-	for (int i = 0; i < map_rows * map_cols; i++)
-		res[i] = INT_MAX;
 	// generate a heap that can save nodes (and a open_handle)
 	boost::heap::fibonacci_heap< ICBSSingleAgentLLNode*, boost::heap::compare<ICBSSingleAgentLLNode::compare_node> > heap;
 	boost::heap::fibonacci_heap< ICBSSingleAgentLLNode*, boost::heap::compare<ICBSSingleAgentLLNode::compare_node> >::handle_type open_handle;
-	// generate hash_map (key is a node pointer, data is a node handler,
+	// generate hash_map (key is a node pointer, data is a node handle,
 	//                    NodeHasher is the hash function to be used,
 	//                    eqnode is used to break ties when hash values are equal)
-	dense_hash_map<ICBSSingleAgentLLNode*, fibonacci_heap<ICBSSingleAgentLLNode*, boost::heap::compare<ICBSSingleAgentLLNode::compare_node> >::handle_type, ICBSSingleAgentLLNode::NodeHasher, ICBSSingleAgentLLNode::eqnode> nodes;
-	nodes.set_empty_key(NULL);
-	dense_hash_map<ICBSSingleAgentLLNode*, fibonacci_heap<ICBSSingleAgentLLNode*, boost::heap::compare<ICBSSingleAgentLLNode::compare_node> >::handle_type, ICBSSingleAgentLLNode::NodeHasher, ICBSSingleAgentLLNode::eqnode>::iterator it; // will be used for find()
+	dense_hash_map<ICBSSingleAgentLLNode*,
+	               fibonacci_heap<ICBSSingleAgentLLNode*, boost::heap::compare<ICBSSingleAgentLLNode::compare_node> >::handle_type,
+	               ICBSSingleAgentLLNode::NodeHasher,
+	               ICBSSingleAgentLLNode::eqnode
+	               > nodes;
+	nodes.set_empty_key(nullptr);
+	dense_hash_map<ICBSSingleAgentLLNode*,
+	               fibonacci_heap<ICBSSingleAgentLLNode*, boost::heap::compare<ICBSSingleAgentLLNode::compare_node> >::handle_type,
+	               ICBSSingleAgentLLNode::NodeHasher,
+	               ICBSSingleAgentLLNode::eqnode
+	               >::iterator it; // will be used for find()
 
-	ICBSSingleAgentLLNode* root = new ICBSSingleAgentLLNode(root_location, 0, 0, NULL, 0);
+	auto root = new ICBSSingleAgentLLNode(root_location, 0, 0, nullptr, 0);
 	root->open_handle = heap.push(root);  // add root to heap
-	nodes[root] = root->open_handle;       // add root to hash_table (nodes)
+	nodes[root] = root->open_handle;      // add root to hash_table (nodes)
 	while (!heap.empty()) {
 		ICBSSingleAgentLLNode* curr = heap.top();
 		heap.pop();
@@ -42,7 +49,7 @@ void HeuristicCalculator::getHVals(vector<int>& res)
 				abs(next_loc % map_cols - curr->loc % map_cols) < 2)
 			{  // if that grid is not blocked
 				int next_g_val = (int) curr->g_val + 1;
-				ICBSSingleAgentLLNode* next = new ICBSSingleAgentLLNode(next_loc, next_g_val, 0, NULL, 0);
+				auto next = new ICBSSingleAgentLLNode(next_loc, next_g_val, 0, nullptr, 0);
 				it = nodes.find(next);
 				if (it == nodes.end()) {  // add the newly generated node to heap and hash table
 					next->open_handle = heap.push(next);
@@ -78,7 +85,7 @@ void HeuristicCalculator::getAllPairsHVals(vector<vector<int>>& res)
 	{
 		if (my_map[root_location])
 			continue;
-		res[root_location].resize(map_size, INT_MAX);
+		res[root_location].resize(map_size, numeric_limits<int>::max());
 
 		// generate a heap that can save nodes (and a open_handle)
 		boost::heap::fibonacci_heap< ICBSSingleAgentLLNode*, boost::heap::compare<ICBSSingleAgentLLNode::compare_node> > heap;

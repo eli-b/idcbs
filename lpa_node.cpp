@@ -9,7 +9,7 @@ LPANode::LPANode() {
 
 LPANode::LPANode(int id, float g_val, float v_val, float h_val, LPANode* parent, int timestep, int num_internal_conf, bool in_openlist):
     loc_id_(id),  g_(g_val), v_(v_val), h_(h_val), bp_(parent), t_(timestep),
-    num_internal_conf_(num_internal_conf), in_openlist_(in_openlist) {
+    in_openlist_(in_openlist) {
 }
 
 LPANode::LPANode(const LPANode& other) {
@@ -19,7 +19,6 @@ LPANode::LPANode(const LPANode& other) {
   h_ = other.h_;
   bp_ = other.bp_;
   t_ = other.t_;
-  num_internal_conf_ = other.num_internal_conf_;
   in_openlist_ = other.in_openlist_;
   openlist_handle_ = other.openlist_handle_;
   focallist_handle_ = other.focallist_handle_;

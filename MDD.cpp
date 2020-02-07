@@ -107,23 +107,25 @@ bool MDD::updateMDD(const tuple<int, int, int> &constraint, int num_col)
 {
 	auto [loc1, loc2, t] = constraint;
 
-	if (loc2 < 0) // Edge constraint
+	if (loc2 < 0) // edge constraint - TODO: explain this hack. Looks like when loc2<0, loc1 and (-loc2-1) are indices
+	              //                         in cell enumeration, and otherwise loc1 and loc2 are row and column values.
 	{
 		for (list<MDDNode*>::iterator it = levels[t].begin(); it != levels[t].end(); ++it)
 			if ((*it)->location == loc1)
 				for (list<MDDNode*>::iterator child = (*it)->children.begin(); child != (*it)->children.end(); ++child)
-					if ((*child)->location == -loc2 - 1)
+					if ((*child)->location == -loc2 - 1)  // FIXME: HACK!
 					{
 						(*it)->children.erase(child);
 						(*child)->parents.remove(*it);
 						if ((*it)->children.empty())
-							deleteNode(*it);
-						if ((*child)->parents.empty())
-							deleteNode(*child);
+                            deleteNode(*it);  // Careful! Will invalidate the it iterator, but we won't be using it again
+						if ((*child)->parents.empty()) {
+                            deleteNode(*child);  // Careful! Will invalidate the child iterator, but we won't be using it again
+						}
 						return true;
 					}
 	}
-	else // Vertex constraint
+	else // vertex constraint
 	{
 		list<MDDNode*> ToDelete;
 		for (auto node : levels[t])

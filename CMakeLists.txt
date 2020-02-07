@@ -1,15 +1,20 @@
-cmake_minimum_required(VERSION 3.12)
+cmake_minimum_required(VERSION 3.13)
 project(disjoint_CBSH)
 
 set(CMAKE_CXX_STANDARD 17)
 
-include_directories(.)
+
+include_directories(.
+        $ENV{GUROBI_HOME}/include
+        )
 
 link_libraries(boost_program_options
         boost_graph
         pthread
         glog
         stdc++fs
+        $ENV{GUROBI_HOME}/lib/libgurobi_c++.a
+        $ENV{GUROBI_HOME}/lib/libgurobi81.so
         )
 
 add_executable(disjoint_CBSH
@@ -41,4 +46,5 @@ add_executable(disjoint_CBSH
         ICBSSingleAgentLLSearch.h
         conflict_avoidance_table.h
         conflict_avoidance_table.cpp
-        XytHolder.cpp XytHolder.h)
+        XytHolder.cpp
+        XytHolder.h)
