@@ -6,6 +6,14 @@ verify_ssl = true
 [dev-packages]
 
 [packages]
+pandas = "*"
+numpy = "*"
+ipython = "*"
+altair = "*"
+vegascope = "*"
+jupyter = "*"
+pyqt5 = "*"
+vega = "*"
 
 [requires]
 python_version = "3.7"
