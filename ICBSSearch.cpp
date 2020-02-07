@@ -449,11 +449,11 @@ void ICBSSearch::collectConstraints(ICBSNode* curr, std::list<pair<int, Constrai
 {
 	while (curr != nullptr)
 	{
-		for (auto con : curr->positive_constraints[curr->agent_id])
+		for (const auto& con : curr->positive_constraints[curr->agent_id])
 		{
 			constraints.push_back(make_pair(curr->agent_id, con));
 		}
-		for (auto con : curr->negative_constraints[curr->agent_id])
+		for (const auto& con : curr->negative_constraints[curr->agent_id])
 		{
 			constraints.push_back(make_pair(curr->agent_id, con));
 		}
@@ -479,8 +479,8 @@ int ICBSSearch::buildConstraintTable(ICBSNode* curr, int agent_id, int newConstr
 	list < Constraint > constraints_negative;
 	while (curr != nullptr)
 	{
-		for (auto con: curr->negative_constraints[agent_id]) {
-			auto [loc1, loc2, constraint_timestep, positive_constraint] = con;
+		for (const auto& con: curr->negative_constraints[agent_id]) {
+			const auto& [loc1, loc2, constraint_timestep, positive_constraint] = con;
 			constraints_negative.push_back(con);
 			if (loc1 == goal.first && loc2 < 0 && lastGoalConsTimestep < constraint_timestep)
 				lastGoalConsTimestep = constraint_timestep;
@@ -489,8 +489,8 @@ int ICBSSearch::buildConstraintTable(ICBSNode* curr, int agent_id, int newConstr
 		for (int j = 0; j < num_of_agents ; ++j) {
 			if (j == agent_id) // For our agent, those are landmarks
 			{
-				for (auto con: curr->positive_constraints[agent_id]) {
-					auto[loc1, loc2, constraint_timestep, positive_constraint] = con;
+				for (const auto& con: curr->positive_constraints[j]) {
+					const auto& [loc1, loc2, constraint_timestep, positive_constraint] = con;
 
 					if (loc2 < 0) // vertex constraint
 					{
@@ -520,8 +520,8 @@ int ICBSSearch::buildConstraintTable(ICBSNode* curr, int agent_id, int newConstr
 				}
 			}
 			else {  // for the other agents, it is equivalent to a negative constraint
-				for (auto con: curr->positive_constraints[agent_id]) {
-					auto [loc1, loc2, constraint_timestep, positive_constraint] = con;
+				for (const auto& con: curr->positive_constraints[j]) {
+					const auto& [loc1, loc2, constraint_timestep, positive_constraint] = con;
 					if (loc1 == goal.first && loc2 < 0 && lastGoalConsTimestep < constraint_timestep) {
 						lastGoalConsTimestep = constraint_timestep;
 					}
@@ -717,7 +717,7 @@ void ICBSSearch::copyConflicts(const vector<bool>& unchanged,
 {
 	for (const auto& conflict : from)
 	{
-		auto [agent1, agent2, loc1, loc2, timestep] = *conflict;
+		const auto& [agent1, agent2, loc1, loc2, timestep] = *conflict;
 		if (unchanged[agent1] && unchanged[agent2])
 			to.push_back(conflict);
 	}
@@ -729,7 +729,7 @@ void ICBSSearch::clearConflictsOfAffectedAgents(bool *unchanged,
 {
 	auto it = lst.begin();
 	while (it != lst.end()) {
-		auto [agent1, agent2, loc1, loc2, timestep] = **it;
+		const auto& [agent1, agent2, loc1, loc2, timestep] = **it;
 		if (!unchanged[agent1] || !unchanged[agent2])
 			it = lst.erase(it);
 		else
@@ -805,13 +805,13 @@ void ICBSSearch::findConflicts(ICBSNode &curr, int a1, int a2)
 		int loc2 = a2_path[timestep].location;
 		if (loc1 == loc2)
 		{
-			curr.unknownConf.push_back(std::shared_ptr<Conflict>(new Conflict(a1, a2, loc1, -1, timestep)));
+			curr.unknownConf.push_back(std::make_shared<Conflict>(a1, a2, loc1, -1, timestep));
 		}
 		else if (timestep < min_path_length - 1
 			&& loc1 == a2_path[timestep + 1].location
 			&& loc2 == a1_path[timestep + 1].location)
 		{
-			curr.unknownConf.push_back(std::shared_ptr<Conflict>(new Conflict(a1, a2, loc1, loc2, timestep + 1))); // edge conflict
+			curr.unknownConf.push_back(std::make_shared<Conflict>(a1, a2, loc1, loc2, timestep + 1)); // edge conflict
 		}
 	}
 	if (a1_path.size() != a2_path.size())  // check whether there are conflicts that occur after one agent reaches its goal
@@ -1092,7 +1092,8 @@ std::shared_ptr<Conflict> ICBSSearch::getHighestPriorityConflict(ICBSNode &node,
 
 		for (const auto& conf : confs)
 		{
-			auto [agent1, agent2, loc1, loc2, timestep] = *conf;
+			const auto& [agent1, agent2, loc1, loc2, timestep] = *conf;
+
 			vector<PathEntry> & a1_path = *(*node.all_paths)[agent1];
 			vector<PathEntry> & a2_path = *(*node.all_paths)[agent2];
 
@@ -1830,7 +1831,7 @@ std::tuple<ICBSNode *, bool> ICBSSearch::generateChild(ICBSNode *child, Conflict
 	for (const auto& con : child->negative_constraints[child->agent_id])  // TODO: When rectangle conflict resolution is added, more than one negative constraint
 	                                                                      //       might be added at once. Replan once after all negative constraints are accounted for!
 	{
-		auto [loc1, loc2, timestep, positive_constraint] = con;
+		const auto& [loc1, loc2, timestep, positive_constraint] = con;
 		int a[2];
 		if (split == split_strategy::DISJOINT3)
 		{
@@ -1895,7 +1896,7 @@ std::tuple<ICBSNode *, bool> ICBSSearch::generateChild(ICBSNode *child, Conflict
 		for (const auto& con : child->positive_constraints[child->agent_id])  // TODO: Replan once after all positive constraints are applied instead of this way.
 		                                                                      //       This way is OK for now since only a single positive constraint is added at a time.
 		{
-			auto [loc1, loc2, timestep, positive_constraint] = con;
+			const auto& [loc1, loc2, timestep, positive_constraint] = con;
 			if (loc2 < 0 &&  // vertex constraint
 				getAgentLocation(parent_paths, timestep, ag) == loc1)  // The agent is in violation of the positive constraint
 			{
@@ -2678,11 +2679,11 @@ void ICBSSearch::printConstraints(const ICBSNode* n) const
 	while (curr != nullptr)
 	{
 		for (int j = 0; j < num_of_agents; ++j) {
-			for (auto con: curr->positive_constraints[j])
+			for (const auto& con: curr->positive_constraints[j])
 			{
 				std::cout << curr->agent_id << ": " << con << std::endl;
 			}
-			for (auto con: curr->negative_constraints[j])
+			for (const auto& con: curr->negative_constraints[j])
 			{
 				std::cout << curr->agent_id << ": " << con << std::endl;
 			}
@@ -3079,7 +3080,7 @@ bool ICBSSearch::runICBSSearch()
 //			ICBSNode* n1 = new ICBSNode(curr);
 //			ICBSNode* n2 = new ICBSNode(curr);
 //			ICBSNode* n3 = new ICBSNode(curr);
-//			auto [agent1_id, agent2_id, location1, location2, timestep] = *curr->conflict;
+//			const auto& [agent1_id, agent2_id, location1, location2, timestep] = *curr->conflict;
 //			n1->agent_id = agent1_id;
 //			n2->agent_id = agent2_id;
 //			n3->agent_id = (1 + agent1_id) * num_of_agents + agent2_id;
@@ -3483,7 +3484,7 @@ std::tuple<bool, int> ICBSSearch::do_idcbsh_iteration(ICBSNode *curr,
 		}
 	}
 
-	if (curr->conflict == NULL) // Failed to find a conflict => no conflicts => found a solution
+	if (curr->conflict == nullptr) // Failed to find a conflict => no conflicts => found a solution
 	{
 		solution_found = true;
 		solution_cost = curr->g_val;
@@ -3506,7 +3507,7 @@ std::tuple<bool, int> ICBSSearch::do_idcbsh_iteration(ICBSNode *curr,
 		std::cout << "Chosen conflict: " << *curr->conflict << std::endl;
 	}
 
-	auto [agent1_id, agent2_id, location1, location2, timestep] = *curr->conflict;
+	const auto& [agent1_id, agent2_id, location1, location2, timestep] = *curr->conflict;
 
 	std::shared_ptr<Conflict> orig_conflict = curr->conflict;  // TODO: Consider not storing the chosen conflict as a state of the node
 	int orig_agent_id = curr->agent_id;

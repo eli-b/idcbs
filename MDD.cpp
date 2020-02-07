@@ -105,7 +105,7 @@ bool MDD::buildMDD(const std::vector < std::unordered_map<int, ConstraintState >
 
 bool MDD::updateMDD(const tuple<int, int, int> &constraint, int num_col)
 {
-	auto [loc1, loc2, t] = constraint;
+	const auto& [loc1, loc2, t] = constraint;
 
 	if (loc2 < 0) // edge constraint - TODO: explain this hack. Looks like when loc2<0, loc1 and (-loc2-1) are indices
 	              //                         in cell enumeration, and otherwise loc1 and loc2 are row and column values.

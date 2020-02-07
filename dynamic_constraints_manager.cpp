@@ -77,7 +77,7 @@ void DynamicConstraintsManager::addDynConstraint(int from_id, int to_id, int ts)
 
 void DynamicConstraintsManager::popDynConstraint(int from_id, int to_id, int ts) {
     // Remove it from the list of dynamic constraints.
-    auto [back_from_id, back_to_id] = dyn_constraints_[ts].back();
+    const auto [back_from_id, back_to_id] = dyn_constraints_[ts].back();  // Not auto& because the constraint is about to be removed
     VLOG_IF(1, back_from_id != from_id) << "ERROR: We assume constraints are popped in the same order as they're added, but in reverse";
     assert(back_from_id == from_id);
     VLOG_IF(1, back_to_id != to_id) << "ERROR: We assume constraints are popped in the same order as they're added, but in reverse";
@@ -89,7 +89,7 @@ bool DynamicConstraintsManager::isDynCons(int curr_id, int next_id, int next_ts)
 	VLOG(11) << "\t\t\tisDynConstrained: <from=" << curr_id << ", to=" << next_id << ", t=" << next_ts << ">";
 	// Check edge constraints (move from curr_id to next_id (getting to next_id at next_ts) is disallowed).
 	if ( next_ts > 0 && next_ts < static_cast<int>(dyn_constraints_.size()) ) {
-		for (auto c : dyn_constraints_[next_ts]) {
+		for (const auto& c : dyn_constraints_[next_ts]) {
 			if ( c.first == curr_id && c.second == next_id ) {
 				VLOG(11) << "\t\t\t\tYES DYN_CONS!";
 				return true;

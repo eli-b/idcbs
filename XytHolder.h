@@ -29,7 +29,7 @@ public:
         }
         for (int i = 0; i < other.xy_size ; ++i) {
             if (other.data[i] != nullptr) {
-                for (auto pair: *other.data[i]) {
+                for (const auto& pair: *other.data[i]) {
                     set(i, pair[0], pair[1]);
                 }
             }

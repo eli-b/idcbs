@@ -156,7 +156,7 @@ bool ICBSSingleAgentLLSearch::findPath(vector<PathEntry> &path,
 					cat.num_conflicts_for_step(curr->loc, next_id, next_timestep);
 
 				// generate (maybe temporary) node
-				ICBSSingleAgentLLNode* next = new ICBSSingleAgentLLNode(next_id, next_g_val, next_h_val, curr,
+				auto next = new ICBSSingleAgentLLNode(next_id, next_g_val, next_h_val, curr,
 					next_timestep, next_internal_conflicts, false);		
 				it = allNodes_table.find(next);// try to retrieve it from the hash table
 				if (it == allNodes_table.end())
@@ -203,7 +203,7 @@ bool ICBSSingleAgentLLSearch::findShortestPath(vector<PathEntry> &path,
 	hashtable_t::iterator it;  // will be used for find()
 
 	 // generate start and add it to the OPEN list
-	ICBSSingleAgentLLNode* root = new ICBSSingleAgentLLNode(start.first, 0, my_heuristic[start.first], NULL, start.second, 0, false);
+	auto root = new ICBSSingleAgentLLNode(start.first, 0, my_heuristic[start.first], nullptr, start.second, 0, false);
 	num_generated++;
 	root->open_handle = open_list.push(root);
 	root->focal_handle = focal_list.push(root);
@@ -281,7 +281,7 @@ bool ICBSSingleAgentLLSearch::findShortestPath(vector<PathEntry> &path,
 		}  // end for loop that generates successors
 		
 		
-		if (open_list.size() == 0)  // in case OPEN is empty, no path found...
+		if (open_list.empty())  // in case OPEN is empty, no path found...
 			break;
 		// update FOCAL if min f-val increased
 		ICBSSingleAgentLLNode* open_head = open_list.top();
@@ -311,10 +311,10 @@ bool ICBSSingleAgentLLSearch::findShortestPath(vector<PathEntry> &path,
 
 inline void ICBSSingleAgentLLSearch::releaseClosedListNodes(hashtable_t& allNodes_table)
 {
-	hashtable_t::iterator it;
-	for (auto it: allNodes_table) 
+	for (const auto& pair: allNodes_table)
 	{
-		delete it.second;
+	    const auto& [node_k, node] = pair;
+		delete node;
 	}
 }
 
