@@ -61,15 +61,19 @@ int main(int argc, char** argv)
 
     FLAGS_v = glog_v;
 	
-	srand((int)time(0));
-
 	// read the map file and construct its two-dimensional array
 	MapLoader ml(vm["map"].as<string>());
 
 	// read agents' start and goal locations
 	AgentsLoader al(vm["agents"].as<string>(), ml, vm["agentNum"].as<int>(), vm["warehouseWidth"].as<int>());
 
-	srand(vm["seed"].as<int>());
+	if (vm["seed"].empty()) {
+	    int seed = (int) time(nullptr);
+	    cout << "Using seed " << seed << endl;
+        srand(seed);
+    }
+	else
+	    srand(vm["seed"].as<int>());
 
 	
 	split_strategy p;
