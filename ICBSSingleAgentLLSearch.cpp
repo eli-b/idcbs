@@ -104,7 +104,7 @@ bool ICBSSingleAgentLLSearch::isConstrained(int direction, int next_id, int next
 bool ICBSSingleAgentLLSearch::findPath(vector<PathEntry> &path,
 	const std::vector < std::unordered_map<int, ConstraintState > >& cons_table,
 	ConflictAvoidanceTable& cat,
-	const pair<int, int> &start, const pair<int, int>&goal, lowlevel_hval h_type)
+	const pair<int, int> &start, const pair<int, int>&goal, lowlevel_heuristic h_type)
 {
 	num_expanded = 0;
 	num_generated = 0;
@@ -145,9 +145,9 @@ bool ICBSSingleAgentLLSearch::findPath(vector<PathEntry> &path,
 				// compute cost to next_id via curr node
 				int next_g_val = curr->g_val + 1;
 				int next_h_val;
-				if (h_type == lowlevel_hval::DEFAULT)
+				if (h_type == lowlevel_heuristic::DEFAULT)
 					next_h_val = abs(my_heuristic[goal.first] - my_heuristic[next_id]);
-				else //h_type == lowlevel_hval::DH
+				else //h_type == lowlevel_heuristic::DH
 					next_h_val = getDifferentialHeuristic(next_id, goal.first);
 				if (next_timestep + next_h_val > goal.second) // the node cannot reach the goal node at time goal.second
 					continue;

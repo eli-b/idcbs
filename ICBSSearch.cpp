@@ -3938,7 +3938,7 @@ ICBSSearch::ICBSSearch(const MapLoader &ml, const AgentsLoader &al, double focal
 		lpas[i] = new LPAStar(init_loc, goal_loc, my_heuristic, &ml, i);
 #endif
 	}
-	if (split != split_strategy::NON_DISJOINT) // Disjoint splitting uses differential heuristics (Manhattan Distance)
+	if (split != split_strategy::NON_DISJOINT) // Disjoint splitting uses differential heuristics
 											   // for the low-level search in addition to the perfect heuristic
 	{
 		for (int i = 0; i < num_of_agents; i++)

@@ -40,7 +40,7 @@ public:
 	bool findPath(vector<PathEntry> &path,
 		const std::vector < std::unordered_map<int, ConstraintState > >& cons_table, 
 		ConflictAvoidanceTable& cat,
-		const pair<int, int> &start, const pair<int, int>&goal, lowlevel_hval h_type);
+		const pair<int, int> &start, const pair<int, int>&goal, lowlevel_heuristic h_type);
 	bool findShortestPath(vector<PathEntry> &path, 
 		const std::vector < std::unordered_map<int, ConstraintState > >& cons_table,
 		ConflictAvoidanceTable& cat,
@@ -51,6 +51,9 @@ public:
 	bool isConstrained(int direction, int next_id, int next_timestep,
 		const std::vector < std::unordered_map<int, ConstraintState > >& cons_table)  const;
 	void updatePath(const ICBSSingleAgentLLNode* goal, vector<PathEntry> &path); 
+	// A heuristic estimate of the difference between any two points,
+	// computed as MIN(|H_i(loc1) - H_i(loc2)|) for every normal heuristic to goal i that we have.
+	// We have one goal heuristic per agent.
 	int getDifferentialHeuristic(int loc1, int loc2) const;
 	inline void releaseClosedListNodes(hashtable_t& allNodes_table);
 

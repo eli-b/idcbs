@@ -26,8 +26,8 @@ enum split_strategy { NON_DISJOINT, RANDOM, SINGLETONS, WIDTH, DISJOINT3, MVC_BA
 extern int GRID_COLS;
 
 // Default: use the true distance to the goal location of the agent
-// DH: Differential Heuristics (like e.g. Manhattan Distance) where all goal locations are used as pivots
-enum lowlevel_hval { DEFAULT, DH, LLH_COUNT };
+// DH: Differential Heuristics where all goal locations are used as pivots
+enum lowlevel_heuristic { DEFAULT, DH, LLH_COUNT };
 
 
 enum conflict_type { F_CARDINAL, CARDINAL_GOAL, SEMI_F_CARDINAL, CARDINAL, SEMICARDINAL_GOAL, SEMICARDINAL, NONCARDINAL, CONFLICT_TYPE_COUNT };
