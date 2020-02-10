@@ -9,8 +9,7 @@ include_directories(.
         )
 
 link_libraries(boost_program_options
-        boost_graph
-        pthread
+        pthread  # Used by one of the other dependencies
         glog
         stdc++fs
         $ENV{GUROBI_HOME}/lib/libgurobi_c++.a
