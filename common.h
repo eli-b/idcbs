@@ -29,6 +29,7 @@ extern int GRID_COLS;
 // DH: Differential Heuristics where all goal locations are used as pivots
 enum lowlevel_heuristic { DEFAULT, DH, LLH_COUNT };
 
+enum highlevel_heuristic { NONE, CG, DG, EWDG, VWCG, EWVWDG, HLH_COUNT };
 
 enum conflict_type { F_CARDINAL, CARDINAL_GOAL, SEMI_F_CARDINAL, CARDINAL, SEMICARDINAL_GOAL, SEMICARDINAL, NONCARDINAL, CONFLICT_TYPE_COUNT };
 
