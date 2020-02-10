@@ -35,7 +35,7 @@ int main(int argc, char** argv)
 		("output,o", po::value<std::string>()->required(), "path to the .csv output file")
 		("agentNum,k", po::value<int>()->required(), "number of agents to read from the .scen file, or to generate")
 		("warehouseWidth,b", po::value<int>()->default_value(0), "width of working stations on both sides, for generating instances")
-		("heuristic,h", po::value<bool>()->default_value(true), "heuristics for the high-level")
+		("heuristic,h", po::value<std::string>()->default_value("NONE"), "heuristic for the high-level search (NONE, CG, DG, EWDG, VWCG, EWVWDG)")
 		("split,p", po::value<std::string>()->default_value("NON_DISJOINT"), "Split Strategy (NON_DISJOINT, RANDOM, SINGLETONS, WIDTH, DISJOINT3,MVC_BASED)")
 		("propagation", po::value<bool>()->default_value(true), "propagate positive constraints to narrow levels down the MDD")
 		("prefer_f_cardinal", po::value<bool>()->default_value(true), "prefer f-cardinal conflicts")
@@ -97,8 +97,28 @@ int main(int argc, char** argv)
 	if (vm["split"].as<string>() != "NON_DISJOINT")
 		cout << vm["split"].as<string>() << "+";
 
+    highlevel_heuristic h;
+    std::string heuristic_s = vm["heuristic"].as<string>();
+    if (heuristic_s == "NONE")
+        h = highlevel_heuristic::NONE;
+    else if (heuristic_s == "CG")
+        h = highlevel_heuristic::CG;
+    else if (heuristic_s == "DG")
+        h = highlevel_heuristic::DG;
+    else if (heuristic_s == "EWDG")
+        h = highlevel_heuristic::EWDG;
+    else if (heuristic_s == "VWCG")
+        h = highlevel_heuristic::VWCG;
+    else if (heuristic_s == "EWVWDG")
+        h = highlevel_heuristic::EWVWDG;
+    else
+    {
+        std::cout <<"WRONG HEURISTIC NAME!" << std::endl;
+        return -1;
+    }
+
     try {
-        ICBSSearch icbs(ml, al, vm["focalW"].as<float>(), p, vm["heuristic"].as<bool>(), vm["cutoffTime"].as<int>(),
+        ICBSSearch icbs(ml, al, vm["focalW"].as<float>(), p, h, vm["cutoffTime"].as<int>(),
                         vm["childPrefBudget"].as<int>(), vm["maxChildPrefOptions"].as<int>(),
                         vm["screen"].as<int>(), vm["propagation"].as<bool>(),
                         vm["prefer_f_cardinal"].as<bool>(), vm["prefer_goal_conflicts"].as<bool>());

@@ -24,7 +24,7 @@ public:
 	bool preferFCardinals = true;
 	bool preferGoalConflicts = true;
 	int screen = 0;
-	bool HL_heuristic;
+	highlevel_heuristic HL_heuristic;
 	double focal_w = 1.0;
 	int child_pref_budget;
 	int max_child_pref_options;
@@ -79,7 +79,7 @@ public:
 
 	bool runICBSSearch();
 	bool runIterativeDeepeningICBSSearch();
-	ICBSSearch(const MapLoader &ml, const AgentsLoader &al, double focal_w, split_strategy p, bool HL_h,
+	ICBSSearch(const MapLoader &ml, const AgentsLoader &al, double focal_w, split_strategy p, highlevel_heuristic HL_h,
                int cutoffTime, int child_pref_budget, int max_child_pref_options, int screen,
                bool propagatePositiveCons, bool preferFCardinals, bool preferGoalConflicts);
 	~ICBSSearch();

@@ -918,9 +918,9 @@ void ICBSSearch::classifyConflicts(ICBSNode &node, ConflictAvoidanceTable* cat /
 								agent2, agent1, loc2, loc1, timestep));  // Make sure the agent with the lower f-increase is first
 				}
 
-				if (!HL_heuristic && preferGoalConflicts)  // Found a cardinal goal conflict and they're not used to
-														   // compute heuristics. Return it immediately.
-														   // FIXME: Don't we need to find all of them so we can choose the one with the highest cost increase for the second agent?
+				if (HL_heuristic == highlevel_heuristic::NONE && preferGoalConflicts)  // Found a cardinal goal conflict and they're not used to
+                                                                                       // compute heuristics. Return it immediately.
+                                                                                       // FIXME: Don't we need to find all of them so we can choose the one with the highest cost increase for the second agent?
 				{
 					conflictType = conflict_type::CARDINAL_GOAL;
 					node.unknownConf.pop_back();  // Only pop it from unknown after we put it in the correct bin
@@ -930,7 +930,7 @@ void ICBSSearch::classifyConflicts(ICBSNode &node, ConflictAvoidanceTable* cat /
 			else {
 				node.cardinalConf.push_back(con);
 
-				if (!HL_heuristic && !preferGoalConflicts)  // Found a goal conflict and they're not used to complete heuristics. Return it immediately.
+				if (HL_heuristic == highlevel_heuristic::NONE && !preferGoalConflicts)  // Found a goal conflict and they're not used to complete heuristics. Return it immediately.
 				{
 					conflictType = conflict_type::CARDINAL_GOAL;
 					node.unknownConf.pop_back();  // Only pop it from unknown after we put it in the correct bin
@@ -938,7 +938,7 @@ void ICBSSearch::classifyConflicts(ICBSNode &node, ConflictAvoidanceTable* cat /
 				}
 			}
 
-			if (!HL_heuristic)  // Found a cardinal conflict and they're not used to complete heuristics. Return it immediately.
+			if (HL_heuristic == highlevel_heuristic::NONE)  // Found a cardinal conflict and they're not used to complete heuristics. Return it immediately.
 			{
 				if (goal_conflict1 || goal_conflict2) {
 					conflictType = conflict_type::CARDINAL_GOAL;
@@ -2264,7 +2264,8 @@ bool ICBSSearch::findPathForSingleAgent(ICBSNode *node, ConflictAvoidanceTable *
 	{
 		clock_t ll_start = std::clock();
 		auto wall_ll_start = std::chrono::system_clock::now();
-		foundSol = search_engines[ag]->findPath(*pNewPath, cons_table, *cat, start_location_and_time, goal_location_and_time, lowlevel_hval::DH);
+		foundSol = search_engines[ag]->findPath(*pNewPath, cons_table, *cat, start_location_and_time,
+												goal_location_and_time, lowlevel_heuristic::DH);
 		lowLevelTime += std::clock() - ll_start;
 		wall_lowLevelTime += std::chrono::system_clock::now() - wall_ll_start;
 		LL_num_expanded += search_engines[ag]->num_expanded;
@@ -2817,7 +2818,7 @@ void ICBSSearch::findShortestPathFromPrevNodeToCurr(ICBSNode *curr, ICBSNode* pr
 // RUN CBS
 bool ICBSSearch::runICBSSearch()
 {
-	if (HL_heuristic)
+	if (HL_heuristic != highlevel_heuristic::NONE)
 #ifndef LPA
 		std::cout << "CBSH: " << std::endl;
 #else
@@ -3001,7 +3002,7 @@ bool ICBSSearch::runICBSSearch()
 					std::cout << "Continuing to work on #" << curr->time_generated << std::endl;
 			}
 		}
-		if (!HL_heuristic) // No heuristics
+		if (HL_heuristic == highlevel_heuristic::NONE) // No heuristics
 		{
             classifyConflicts(*curr, cat);  // classify conflicts
             curr->conflict = getHighestPriorityConflict(*curr);  // choose one to work on
@@ -3322,7 +3323,7 @@ void ICBSSearch::update_cat_and_lpas(ICBSNode *prev_node, ICBSNode *curr,
 // RUN ID-CBS/LPA*
 bool ICBSSearch::runIterativeDeepeningICBSSearch()
 {
-	if (HL_heuristic)
+	if (HL_heuristic != highlevel_heuristic::NONE)
 #ifndef LPA
 		std::cout << "ID-CBSH: " << std::endl;
 #else
@@ -3348,7 +3349,7 @@ bool ICBSSearch::runIterativeDeepeningICBSSearch()
 	root_node->conflict = getHighestPriorityConflict(*root_node);  // choose one to work on
 
 	// Compute the root node's h value, to be used for setting the first iteration's threshold:
-	if (HL_heuristic) {
+	if (HL_heuristic != highlevel_heuristic::NONE) {
 		root_node->h_val = computeHeuristic(*root_node);
 		if (screen == 1) {
 			std::cout << std::endl << "****** Computed h for #" << root_node->time_generated
@@ -3443,7 +3444,7 @@ std::tuple<bool, int> ICBSSearch::do_idcbsh_iteration(ICBSNode *curr,
 
 	vector<vector<PathEntry> *> &paths = *curr->all_paths;
 
-	if (!HL_heuristic) // Then conflicts are not yet classified
+	if (HL_heuristic == highlevel_heuristic::NONE) // Then conflicts are not yet classified
 	{
 		classifyConflicts(*curr, &cat);  // classify conflicts
 		curr->conflict = getHighestPriorityConflict(*curr);  // choose one to work on
@@ -3828,7 +3829,8 @@ void ICBSSearch::idcbsh_unconstrain(ICBSNode *node, ConflictAvoidanceTable &cat,
 	// the goal will is found)
 }
 
-ICBSSearch::ICBSSearch(const MapLoader &ml, const AgentsLoader &al, double focal_w, split_strategy p, bool HL_h,
+ICBSSearch::ICBSSearch(const MapLoader &ml, const AgentsLoader &al, double focal_w, split_strategy p,
+                       highlevel_heuristic HL_h,
                        int cutoffTime, int child_pref_budget, int max_child_pref_options, int screen,
                        bool propagatePositiveCons, bool preferFCardinals, bool preferGoalConflicts) :
 	focal_w(focal_w), split(p), HL_heuristic(HL_h), screen(screen), solution_node(nullptr),
