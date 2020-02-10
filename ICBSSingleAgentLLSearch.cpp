@@ -127,9 +127,8 @@ bool ICBSSingleAgentLLSearch::findPath(vector<PathEntry> &path,
 			if (curr->loc != goal.first)
 				continue;
 			updatePath(curr, path);
-			releaseClosedListNodes(allNodes_table);
 			focal_list.clear();
-			allNodes_table.clear();
+			releaseClosedListNodes(allNodes_table);
 			return true;
 		}
 		
@@ -181,9 +180,8 @@ bool ICBSSingleAgentLLSearch::findPath(vector<PathEntry> &path,
 	}  // end while loop
 	 
 	 // no path found
-	releaseClosedListNodes(allNodes_table);
 	focal_list.clear();
-	allNodes_table.clear();
+	releaseClosedListNodes(allNodes_table);
 	return false;
 }
 
@@ -224,10 +222,9 @@ bool ICBSSingleAgentLLSearch::findShortestPath(vector<PathEntry> &path,
 		if (curr->loc == goal.first && curr->timestep > lastGoalConsTime)
 		{
 			updatePath(curr, path);
-			releaseClosedListNodes(allNodes_table);
 			open_list.clear();
 			focal_list.clear();
-			allNodes_table.clear();
+			releaseClosedListNodes(allNodes_table);
 			return true;
 		}
 		else if (curr->timestep > goal.second) // did not reach the goal location before the required timestep
@@ -302,10 +299,9 @@ bool ICBSSingleAgentLLSearch::findShortestPath(vector<PathEntry> &path,
 	}  // end while loop
 	
 	// no path found
-	releaseClosedListNodes(allNodes_table);
 	open_list.clear();
 	focal_list.clear();
-	allNodes_table.clear();
+	releaseClosedListNodes(allNodes_table);
 	return false;
 }
 
@@ -316,6 +312,7 @@ inline void ICBSSingleAgentLLSearch::releaseClosedListNodes(hashtable_t& allNode
 	    const auto& [node_k, node] = pair;
 		delete node;
 	}
+    allNodes_table.clear();
 }
 
 ICBSSingleAgentLLSearch::ICBSSingleAgentLLSearch(int start_location, int goal_location,
