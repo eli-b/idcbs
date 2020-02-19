@@ -25,18 +25,18 @@ LABEL Description="This image contains just my executable and its dependencies s
 
 # This also creates the dir
 WORKDIR /lpa
-COPY ECBSH_no_lpa /lpa/
-COPY ECBSH_no_lpa_latest_conflict /lpa/
-COPY ECBSH_no_lpa_up_and_down /lpa/
-COPY ECBSH_no_lpa_up_and_down_latest_conflict /lpa/
-COPY ECBSH_lpa /lpa/
-COPY ECBSH_lpa_not_latest_conflict /lpa/
-COPY ECBSH_lpa_up_and_down /lpa/
-COPY ECBSH_lpa_up_and_down_not_latest_conflict /lpa/
-COPY IDCBSH_no_lpa /lpa/
-COPY IDCBSH_no_lpa_latest_conflict /lpa/
-COPY IDECBSH_lpa_with_lpmdd_and_path_repair /lpa/
-#COPY IDECBSH_lpa_with_lpmdd_and_path_repair_not_latest_conflict /lpa/
+COPY bin/ECBSH_no_lpa /lpa/
+COPY bin/ECBSH_no_lpa_latest_conflict /lpa/
+COPY bin/ECBSH_no_lpa_up_and_down /lpa/
+COPY bin/ECBSH_no_lpa_up_and_down_latest_conflict /lpa/
+COPY bin/ECBSH_lpa /lpa/
+COPY bin/ECBSH_lpa_not_latest_conflict /lpa/
+COPY bin/ECBSH_lpa_up_and_down /lpa/
+COPY bin/ECBSH_lpa_up_and_down_not_latest_conflict /lpa/
+COPY bin/IDCBSH_no_lpa /lpa/
+COPY bin/IDCBSH_no_lpa_latest_conflict /lpa/
+COPY bin/IDECBSH_lpa_with_lpmdd_and_path_repair /lpa/
+#COPY bin/IDECBSH_lpa_with_lpmdd_and_path_repair_not_latest_conflict /lpa/
 
 #COPY cmake-build-release/disjoint_CBSH /lpa/cmake-build-release/
 #COPY cmake-build-debug/disjoint_CBSH /lpa/cmake-build-debug/

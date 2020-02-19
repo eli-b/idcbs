@@ -9,3 +9,4 @@
 /altair-data-*.json
 /scen/*.scen
 /.ipynb_checkpoints/*
+/bin/*
