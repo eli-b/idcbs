@@ -4,11 +4,11 @@ RUN apt update && apt install -y gdb gdbserver
 
 # This also creates the dir
 WORKDIR /libs
-RUN git clone https://github.com/google/glog.git
-RUN cd glog && ./autogen.sh && ./configure && make && make install
-RUN cd /libs; wget https://dl.bintray.com/boostorg/release/1.70.0/source/boost_1_70_0.tar.bz2
-RUN cd /libs; tar -xvf boost_1_70_0.tar.bz2
-RUN mkdir /boost && cd /libs/boost_1_70_0 && ./bootstrap.sh --with-libraries=program_options,graph && ./b2 install -j3 -q
+RUN cd /libs && git clone https://github.com/google/glog.git && cd glog && ./autogen.sh && ./configure && make && \
+ make install && cd /libs && rm glog -rf
+RUN cd /libs && wget https://dl.bintray.com/boostorg/release/1.72.0/source/boost_1_72_0.tar.bz2 && \
+ tar -xvf boost_1_72_0.tar.bz2 && cd /libs/boost_1_72_0 && ./bootstrap.sh --with-libraries=program_options,graph && \
+ ./b2 install -j3 -q && cd /libs && rm boost_1_72_0.tar.bz2 && rm boost_1_72_0 -rf
 ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib/
 RUN cd /libs; wget https://packages.gurobi.com/8.1/gurobi8.1.1_linux64.tar.gz
 RUN cd /libs; tar xvfz gurobi8.1.1_linux64.tar.gz
