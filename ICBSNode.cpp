@@ -44,7 +44,6 @@ ICBSNode::ICBSNode(ICBSNode* parent, bool is_left_child) : parent(parent),
 
 void ICBSNode::clear()
 {
-	fCardinalConf.clear();
 	cardinalGoalConf.clear();
 	cardinalConf.clear();
 	semiCardinalGoalConf.clear();

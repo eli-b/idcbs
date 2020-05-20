@@ -28,31 +28,11 @@ void ICBSSearch::remove_model_constraints(vector<vector<vector<GRBConstr>>>& Con
 //    mvc_model.reset(0);
 }
 
-void ICBSSearch::calcNodeDegrees(ICBSNode& curr, vector<int>& nodeDegrees) {
+void ICBSSearch::calc_mvc_mode_node_degrees(ICBSNode& curr, vector<int>& nodeDegrees) {
     vector<vector<bool>> countedEdges(num_of_agents);
     for (int i = 0; i < num_of_agents; i++)
         countedEdges[i].resize(num_of_agents, false);
-    for (const auto& conf : curr.fCardinalConf)
-    {
-        const auto& [agent1, agent2, loc1, loc2, timestep] = *conf;
-        if (countedEdges[agent1][agent2] == false) {
-            nodeDegrees[agent1]++;
-            nodeDegrees[agent2]++;
-            countedEdges[agent1][agent2] = true;
-            countedEdges[agent2][agent1] = true;
-        }
-    }
     for (const auto& conf : curr.cardinalGoalConf)
-    {
-        const auto& [agent1, agent2, loc1, loc2, timestep] = *conf;
-        if (countedEdges[agent1][agent2] == false) {
-            nodeDegrees[agent1]++;
-            nodeDegrees[agent2]++;
-            countedEdges[agent1][agent2] = true;
-            countedEdges[agent2][agent1] = true;
-        }
-    }
-    for (const auto& conf : curr.semiFCardinalConf)
     {
         const auto& [agent1, agent2, loc1, loc2, timestep] = *conf;
         if (countedEdges[agent1][agent2] == false) {
@@ -74,7 +54,49 @@ void ICBSSearch::calcNodeDegrees(ICBSNode& curr, vector<int>& nodeDegrees) {
     }
 }
 
-// compute heuristics for the high-level search
+// And increment h for trivial CG edges
+void ICBSSearch::add_mvc_model_constraints_from_conflicts(vector<shared_ptr<Conflict>>& conflicts, vector<vector<bool>>& CG,
+                                                          vector<int>& CgNodeDegrees, vector<vector<vector<GRBConstr>>>& Constraints,
+                                                          int& num_of_nontrivial_CG_edges, vector<bool>& nodeHasNontrivialEdges,
+                                                          int& h) {
+    for (const auto& conf : conflicts)
+    {
+        const auto& [agent1, agent2, loc1, loc2, timestep] = *conf;
+        bool alreadySeenConflictBetweenTheseTwo = CG[agent1][agent2];  // The two agents may have more than one cardinal conflict between them
+
+        if (!alreadySeenConflictBetweenTheseTwo) {  // No point in adding the same mvc model constraint twice
+            if ((CgNodeDegrees[agent1] != 1) || (CgNodeDegrees[agent2] != 1)) {
+                GRBConstr constraint =  mvc_model.addConstr(mvc_vars[agent1] + mvc_vars[agent2] >= 1);
+                Constraints[agent1][agent2].push_back(constraint);
+                Constraints[agent2][agent1].push_back(constraint);
+                num_of_nontrivial_CG_edges++;
+                nodeHasNontrivialEdges[agent1] = true;
+                nodeHasNontrivialEdges[agent2] = true;
+            }
+            else
+                h++;
+
+            CG[agent1][agent2] = true;
+            CG[agent2][agent1] = true;
+        }
+    }
+}
+
+void ICBSSearch::re_add_mvc_model_constraints_of_agent(vector<shared_ptr<Conflict>>& conflicts, int i,
+                                                       vector<vector<vector<GRBConstr>>>& Constraints) {
+    for (const auto &conf: conflicts) {
+        const auto& [agent1, agent2, loc1, loc2, timestep] = *conf;
+        if ((agent1 == i) || (agent2 == i)) {  // The edge involves our agent
+            GRBConstr constraint = mvc_model.addConstr(mvc_vars[agent1] + mvc_vars[agent2] >= 1);
+
+            Constraints[agent1][agent2].push_back(constraint);
+            Constraints[agent2][agent1].push_back(constraint);
+        }
+    }
+}
+
+// compute a heuristic estimate for the high-level node, and also choose a more promising conflict is one is found
+// TODO: Separate the second part into a new function
 #ifndef USE_GUROBI
 int ICBSSearch::computeHeuristic(ICBSNode& curr)
 {
@@ -133,31 +155,11 @@ int ICBSSearch::computeHeuristic(ICBSNode& curr)
 #else
 int ICBSSearch::computeHeuristic(ICBSNode& curr)
 {
-    if (curr.cardinalGoalConf.size() + curr.cardinalConf.size() == 0)
+    if (curr.cardinalGoalConf.empty() && curr.cardinalConf.empty())
         return 0;
     if (curr.cardinalGoalConf.size() + curr.cardinalConf.size() == 1)
         return 1;
 
-    //GRBModel mvc_model(gurobi_env);
-//    GRBVar* mvc_vars;
-//    vector<double> lbs(num_of_agents, 0.0);
-//    vector<double> obj_coeffs(num_of_agents, 1);  // The default is that the model minimizes the objective function, as we need
-//#ifndef GUROBI_WITH_GOAL_CONSTRAINTS
-//    vector<char> types(num_of_agents, GRB_BINARY);
-//    vector<double> ubs(num_of_agents, 1.0);
-//#else
-//    vector<char> types(num_of_agents, GRB_INTEGER);
-//    int max_path_len = 0;
-//    for (int j = 0; j < num_of_agents; ++j) {
-//        if ((*curr.all_paths)[j]->size() - 1 > max_path_len)
-//            max_path_len = (*curr.all_paths)[j]->size() - 1;
-//    }
-//    vector<double> ubs(num_of_agents, max_path_len - 1);  // The most I can increase the length of any path is if the
-//                                                          // conflict is at the before-last step of the agent that isn't
-//                                                          // WAITing, and that agent's path is the longest so the timestep
-//                                                          // of the conflict is the latest
-//#endif
-//    mvc_vars = mvc_model.addVars(lbs.data(), ubs.data(), obj_coeffs.data(), types.data(), nullptr, num_of_agents);
     // Build the cardinal conflict graph
     vector<vector<bool>> CG(num_of_agents);  // Including trivial edges
     vector<vector<vector<GRBConstr>>> Constraints(num_of_agents);  // There can be both a cardinal goal conflict and
@@ -181,31 +183,13 @@ int ICBSSearch::computeHeuristic(ICBSNode& curr)
     }
     auto orig_conflict = curr.conflict;
     int h = 0;
-    calcNodeDegrees(curr, CgNodeDegrees);
+    calc_mvc_mode_node_degrees(curr, CgNodeDegrees);
     // Handle cardinal goal conflicts
 #ifndef GUROBI_WITH_GOAL_CONSTRAINTS
     // Treat cardinal goal conflicts as regular cardinal conflicts
-    for (const auto& conf : curr.cardinalGoalConf)
-    {
-        const auto& [agent1, agent2, loc1, loc2, timestep] = *conf;
-        bool alreadySeenConflictBetweenTheseTwo = CG[agent1][agent2];  // The two agents may have more than one cardinal conflict between them
-
-        if (!alreadySeenConflictBetweenTheseTwo) {  // No point in adding the same constraint twice
-            if ((CgNodeDegrees[agent1] != 1) || (CgNodeDegrees[agent2] != 1)) {
-                GRBConstr constraint =  mvc_model.addConstr(mvc_vars[agent1] + mvc_vars[agent2] >= 1);
-                Constraints[agent1][agent2].push_back(constraint);
-                Constraints[agent2][agent1].push_back(constraint);
-                num_of_nontrivial_CG_edges++;
-                nodeHasNontrivialEdges[agent1] = true;
-                nodeHasNontrivialEdges[agent2] = true;
-            }
-            else
-                h++;
-
-            CG[agent1][agent2] = true;
-            CG[agent2][agent1] = true;
-        }
-    }
+    add_mvc_model_constraints_from_conflicts(curr.cardinalGoalConf, CG, CgNodeDegrees, Constraints,
+                                             num_of_nontrivial_CG_edges,
+                                             nodeHasNontrivialEdges, h);
 #else
     for (const auto& conf: curr.cardinalGoalConf) {
         // Find the latest timestep of a cardinal goal conflict between each two agents
@@ -241,34 +225,18 @@ int ICBSSearch::computeHeuristic(ICBSNode& curr)
         }
     }
 #endif
-    // Handle cardinal conflicts
-    for (const auto& conf : curr.cardinalConf)
-    {
-        const auto& [agent1, agent2, loc1, loc2, timestep] = *conf;
-        bool alreadySeenConflictBetweenTheseTwo = CG[agent1][agent2];  // The two agents may have more than one cardinal conflict between them
+    // Handle f-cardinal, semi-f-cardinal, and cardinal conflicts
+    add_mvc_model_constraints_from_conflicts(curr.cardinalConf, CG, CgNodeDegrees, Constraints,
+                                             num_of_nontrivial_CG_edges,
+                                             nodeHasNontrivialEdges, h);
 
-        if (!alreadySeenConflictBetweenTheseTwo) {  // No point in adding the same constraint twice
-            if ((CgNodeDegrees[agent1] != 1) || (CgNodeDegrees[agent2] != 1)) {
-                GRBConstr constraint =  mvc_model.addConstr(mvc_vars[agent1] + mvc_vars[agent2] >= 1);
-                Constraints[agent1][agent2].push_back(constraint);
-                Constraints[agent2][agent1].push_back(constraint);
-                num_of_nontrivial_CG_edges++;
-                nodeHasNontrivialEdges[agent1] = true;
-                nodeHasNontrivialEdges[agent2] = true;
-            }
-            else
-                h++;
-
-            CG[agent1][agent2] = true;
-            CG[agent2][agent1] = true;
-        }
-    }
-
-    if (num_of_nontrivial_CG_edges == 0)
+    if (num_of_nontrivial_CG_edges == 0)  // Then there are no f-cardinal conflicts to be found
         return h;
 
-    if (num_of_nontrivial_CG_edges == 2) {  // Exactly three vertices and two edges - two edges that share a single vertex.
-                                            // (We already handled trivial edges earlier)
+    if ((num_of_nontrivial_CG_edges == 2) &&  // Exactly three vertices and two edges - two edges that share a single vertex.
+                                              // (We already handled trivial edges earlier)
+        !preferFCardinals)  // Otherwise we need to run the model
+    {
 #ifndef GUROBI_WITH_GOAL_CONSTRAINTS
 
             h += 1;
@@ -286,37 +254,30 @@ int ICBSSearch::computeHeuristic(ICBSNode& curr)
                 }
             }
 #endif
-//        delete [] mvc_vars;
         remove_model_constraints(Constraints, CG, nodeHasNontrivialEdges);
         return h;
     }
 
 
     mvc_model.optimize();
-
-//    char filename[100];
-//    snprintf(filename, 100, "model-%ld.lp", curr.time_generated);
-//    mvc_model.write(filename);
-
     // Get the size of the mvc
     int nontrivial_mvc_size = mvc_model.getObjective().getValue();
     h += nontrivial_mvc_size;
 
-    if (preferFCardinals &&  // Look for an f-cardinal conflict among the cardinal conflicts
-            curr.fCardinalConf.empty() && curr.cardinalGoalConf.empty() &&
-            curr.semiFCardinalConf.empty() && // No f-cardinal or semi-f-cardinal conflict is already known
-            num_of_nontrivial_CG_edges != 0  // Removing trivial edges always decreases the h by 1
-            ) {
-        // Find an edge that increases the cost without increasing the size of the mvc -
+    if (preferFCardinals && num_of_nontrivial_CG_edges != 0  // Look for an f-cardinal conflict among the cardinal conflicts,
+                                                             // there's a chance of finding one (removing trivial edges always decreases the h by 1).
+//        && (eagerly_search_for_f_cardinals || curr.cardinalGoalConf.empty())  // Otherwise just stick with the at-least-semi-f-cardinal cardinal-goal conflict that we have
+        ) {
+        // Find an edge that increases the cost without decreasing the size of the mvc -
         // splitting on it will increase the F of one of the children, because that node's cost will increase (by 1, usually)
         // and its h will stay the same. That's better than splitting on conflicts where the F of both children stays the same.
 
 #ifndef GUROBI_WITH_GOAL_CONSTRAINTS
         int best_h_decrease = 1;  // When removing a vertex, the size of the mvc can only decrease by at most 1 (a lower decrease is better)
 #else
-        // In theory, we could have a larger than 1 cost decrease from removing a vertex. For example, if 10 agents
+        // We could have a larger than 1 cost decrease from removing a vertex. For example, if 10 agents
         // have a conflict with the same agent 3 timesteps after it reaches its goal, removing that agent would decrease
-        // the cost by 4. In practice, we're currently only considering cases where we don't have cardinal goal conflicts.
+        // the h by 4.
         int best_h_decrease = numeric_limits<int>::max();  // A lower decrease is better
 #endif
         bool f_cardinal_found = false;
@@ -343,39 +304,61 @@ int ICBSSearch::computeHeuristic(ICBSNode& curr)
             // In theory, we would need to re-add the agent's cardinal-goal edges where it is the one that is at its goal
             // with a 1-decrease on the coefficient of the other agent, but since we're not doing this if there are any
             // cardinal goal conflicts, this isn't needed
+            // FIXME: WE ARE NOW DOING THIS, so do it
 #endif
 
             // Re-optimize
             mvc_model.optimize();
             int nontrivial_mvc_size_without_the_edges_of_the_node = mvc_model.getObjective().getValue();
-            if (nontrivial_mvc_size - nontrivial_mvc_size_without_the_edges_of_the_node < best_h_decrease) {
-                best_h_decrease = nontrivial_mvc_size - nontrivial_mvc_size_without_the_edges_of_the_node;
+            int h_decrease = nontrivial_mvc_size - nontrivial_mvc_size_without_the_edges_of_the_node;
+            if (h_decrease < best_h_decrease) {
+                best_h_decrease = h_decrease;
             }
 
-            // Add all the edges back (since the agent has a nontrivial edge, all its edges are nontrivial
-            for (const auto &conf: curr.cardinalConf) {
-                const auto& [agent1, agent2, loc1, loc2, timestep] = *conf;
-                if ((agent1 == i) || (agent2 == i)) {  // The edge involves our agent
-
-                    if (best_h_decrease == 0) {  // Can't improve that, skip adding the edges back - we're going to remove them all anyway.
-                                                 // Arbitrarily choose the agent's first nontrivial conflict
+            if (h_decrease == 0) {
+                for (const auto& conf: curr.cardinalGoalConf) {
+                    const auto&[agent1, agent2, loc1, loc2, timestep] = *conf;
+                    if (agent1 == i) {  // Our agent is the non-goal side - we found a full f-cardinal conflict!
+                                        // Can't improve that, skip adding the edges back - we're going to remove them all anyway.
                         f_cardinal_found = true;
                         curr.conflict = conf;
-                        curr.branch_on_first_agent = (agent2 == i);  // Branch on the *other* agent - adding a positive constraint on
-                                                                     // it might increase the cost of other agents besides ours and
-                                                                     // make the conflict fully f-cardinal
+                        ++f_cardinal_conflicts_found;
+#ifndef GUROBI_WITH_GOAL_CONSTRAINTS
+                        ++h;
                         break;
+#endif
                     }
-
-                    GRBConstr constraint = mvc_model.addConstr(mvc_vars[agent1] + mvc_vars[agent2] >= 1);
-
-                    Constraints[agent1][agent2].push_back(constraint);
-                    Constraints[agent2][agent1].push_back(constraint);
                 }
+                if (curr.cardinalGoalConf.empty()) {  // No cardinal-goal conflicts => in particular, the chosen conflict isn't cardinal-goal.
+                                                      // Cardinal-goal conflicts are better than semi-f-cardinal conflicts
+                    for (const auto& conf: curr.cardinalConf) {
+                        const auto&[agent1, agent2, loc1, loc2, timestep] = *conf;
+                        if ((agent1 == i) ||
+                            (agent2 == i)) {  // The edge involves our agent - we found a semi-f-cardinal conflict!
+                                              // Can't improve that, skip adding the edges back - we're going to remove them all anyway.
+                            curr.conflict = conf;  // Arbitrarily choose the agent's first semi-f-cardinal conflict
+                            f_cardinal_found = true;
+                            curr.branch_on_first_agent = (agent1 == i);  // Branch on the this agent - adding a positive constraint on
+                                                                         // it might increase the cost of other agents besides the conflicting agent and
+                                                                         // make the conflict fully f-cardinal
+                            ++semi_f_cardinal_conflicts_found;
+                            break;
+                        }
+                    }
+                }
+            }
+            // Add all the edges back (since the agent has a nontrivial edge, all its edges are nontrivial so we should add them all)
+            if (!f_cardinal_found) {
+#ifndef GUROBI_WITH_GOAL_CONSTRAINTS
+                re_add_mvc_model_constraints_of_agent(curr.cardinalGoalConf, i, Constraints);
+#else
+                re_add_mvc_model_goal_constraints_of_agent(curr.cardinalGoalConf, i, Constraints);
+#endif
+                re_add_mvc_model_constraints_of_agent(curr.cardinalConf, i, Constraints);
             }
         }
 
-        if (best_h_decrease == 0) {
+        if (f_cardinal_found) {
             if (screen) {
                 if (curr.conflict == orig_conflict)
                     cerr << "The already chosen conflict " << *curr.conflict <<
@@ -387,10 +370,7 @@ int ICBSSearch::computeHeuristic(ICBSNode& curr)
         }
     }
 
-//    delete [] mvc_vars;
-    // TEMP!@# remove all constraints
     remove_model_constraints(Constraints, CG, nodeHasNontrivialEdges);
-    // END TEMP!@#
 
     return h;
 }
@@ -672,7 +652,6 @@ void ICBSSearch::copyConflictsFromParent(ICBSNode& curr)
 	        unchanged[agent_id] = true;
 	}
 	// Copy conflicts of agents both whose paths remain unchanged
-	copyConflicts(unchanged, curr.parent->fCardinalConf, curr.fCardinalConf);
 	copyConflicts(unchanged, curr.parent->cardinalGoalConf, curr.cardinalGoalConf);
 	copyConflicts(unchanged, curr.parent->cardinalConf, curr.cardinalConf);
 	copyConflicts(unchanged, curr.parent->semiCardinalGoalConf, curr.semiCardinalGoalConf);
@@ -697,9 +676,7 @@ void ICBSSearch::clearConflictsOfAgent(ICBSNode &curr, int ag)
 	unchanged[ag] = false;
 
 	// Keep conflicts of agents both whose paths remain unchanged
-	clearConflictsOfAffectedAgents(unchanged, curr.fCardinalConf);
 	clearConflictsOfAffectedAgents(unchanged, curr.cardinalGoalConf);
-	clearConflictsOfAffectedAgents(unchanged, curr.semiFCardinalConf);
 	clearConflictsOfAffectedAgents(unchanged, curr.cardinalConf);
 	clearConflictsOfAffectedAgents(unchanged, curr.semiCardinalGoalConf);
 	clearConflictsOfAffectedAgents(unchanged, curr.semiCardinalConf);
@@ -750,7 +727,7 @@ void ICBSSearch::findConflicts(ICBSNode& curr)
 		vector<bool> detectedTheConflictsOfThisAgent(num_of_agents, false);
 		for (const auto& pair : curr.new_paths)
 		{
-			int a1 = pair.first;
+			const auto& [a1, path] = pair;
 			detectedTheConflictsOfThisAgent[a1] = true;
 			for (int a2 = 0; a2 < num_of_agents; a2++)
 			{
@@ -834,12 +811,11 @@ void ICBSSearch::findConflicts(ICBSNode &curr, int a1, int a2)
 }
 
 // Classify conflicts into the different cardinality classes and populate the node's conflict lists with them.
-// If a CBS heuristic isn't used, return the first cardinal conflict that was found immediately, without finishing
+// If a CBS heuristic isn't used, return the first (f-)cardinal conflict that was found immediately, without finishing
 // the classification of conflicts.
 void ICBSSearch::classifyConflicts(ICBSNode &node, ConflictAvoidanceTable* cat /* = nullptr*/)
 {
-	if (node.fCardinalConf.empty() && node.cardinalGoalConf.empty() &&
-		node.semiFCardinalConf.empty() &&
+	if (node.cardinalGoalConf.empty() &&
 		node.cardinalConf.empty() && node.semiCardinalGoalConf.empty() &&
 		node.semiCardinalConf.empty() && node.nonCardinalConf.empty() && node.unknownConf.empty())
 		return; // No conflict
@@ -861,7 +837,7 @@ void ICBSSearch::classifyConflicts(ICBSNode &node, ConflictAvoidanceTable* cat /
 		bool cardinal1, cardinal2;
 		bool goal_conflict1 = false;
 		bool goal_conflict2 = false;
-		if (loc2 >= 0) // Edge conflict
+		if (loc2 >= 0) // Edge conflict (no need to check if it happens after one agent has already reached its goal)
 		{
 			bool success = buildMDD(node, agent1, timestep, 0, cat);  // Build an MDD for the agent's current cost, unless we already know if it's narrow at <timestep>
 			if (!success)
@@ -909,13 +885,18 @@ void ICBSSearch::classifyConflicts(ICBSNode &node, ConflictAvoidanceTable* cat /
 			if (goal_conflict1 || goal_conflict2) {
 				if (goal_conflict2) {
 					node.cardinalGoalConf.push_back(con);
-				} else {  // then goal_conflict1
-					if (loc2 < 0)
-						node.cardinalGoalConf.push_back(std::make_shared<Conflict>(
-								agent2, agent1, loc1, -1, timestep));  // Make sure the agent with the lower f-increase is first
-					else
-						node.cardinalGoalConf.push_back(std::make_shared<Conflict>(
-								agent2, agent1, loc2, loc1, timestep));  // Make sure the agent with the lower f-increase is first
+					++cardinal_goal_conflicts_found;
+				} else {  // then goal_conflict1 - make sure the agent with the lower f-increase is first
+					if (loc2 < 0) {
+                        node.cardinalGoalConf.push_back(
+                                std::make_shared<Conflict>(agent2, agent1, loc1, -1, timestep));
+                        ++cardinal_goal_conflicts_found;
+                    }
+					else {
+                        node.cardinalGoalConf.push_back(
+                                std::make_shared<Conflict>(agent2, agent1, loc2, loc1, timestep));
+                        ++cardinal_goal_conflicts_found;
+                    }
 				}
 
 				if (HL_heuristic == highlevel_heuristic::NONE && preferGoalConflicts)  // Found a cardinal goal conflict and they're not used to
@@ -924,16 +905,19 @@ void ICBSSearch::classifyConflicts(ICBSNode &node, ConflictAvoidanceTable* cat /
 				{
 					conflictType = conflict_type::CARDINAL_GOAL;
 					node.unknownConf.pop_back();  // Only pop it from unknown after we put it in the correct bin
+					++cardinal_goal_conflicts_found;
 					return;
 				}
 			}
 			else {
 				node.cardinalConf.push_back(con);
+				++cardinal_conflicts_found;
 
 				if (HL_heuristic == highlevel_heuristic::NONE && !preferGoalConflicts)  // Found a goal conflict and they're not used to complete heuristics. Return it immediately.
 				{
 					conflictType = conflict_type::CARDINAL_GOAL;
 					node.unknownConf.pop_back();  // Only pop it from unknown after we put it in the correct bin
+                    ++cardinal_goal_conflicts_found;
 					return;
 				}
 			}
@@ -946,35 +930,53 @@ void ICBSSearch::classifyConflicts(ICBSNode &node, ConflictAvoidanceTable* cat /
 				else
 					conflictType = conflict_type::CARDINAL;
 				node.unknownConf.pop_back();  // Only pop it from unknown after we put it in the correct bin
+                ++cardinal_conflicts_found;
 				return;
 			}
 		}
 		else if (cardinal2)
 		{
-			if (goal_conflict2)
-				node.semiCardinalGoalConf.push_back(con);
-			else
-				node.semiCardinalConf.push_back(con);
+			if (goal_conflict2) {
+                node.semiCardinalGoalConf.push_back(con);
+                ++semi_cardinal_goal_conflicts_found;
+            }
+			else {
+                node.semiCardinalConf.push_back(con);
+                ++semi_cardinal_conflicts_found;
+            }
 		}
-		else if (cardinal1)
+		else if (cardinal1)  // Make sure the non-cardinal agent is first
 		{
 			if (goal_conflict1) {
-				if (loc2 >= 0)
-					node.semiCardinalGoalConf.push_back(std::make_shared<Conflict>(agent2, agent1, loc2, loc1, timestep));  // Make sure the non-cardinal agent is first
-				else
-					node.semiCardinalGoalConf.push_back(std::make_shared<Conflict>(agent2, agent1, loc1, loc2, timestep));  // Make sure the non-cardinal agent is first
+				if (loc2 >= 0) {
+                    node.semiCardinalGoalConf.push_back(
+                            std::make_shared<Conflict>(agent2, agent1, loc2, loc1, timestep));
+                    ++semi_cardinal_goal_conflicts_found;
+                }
+				else {
+                    node.semiCardinalGoalConf.push_back(
+                            std::make_shared<Conflict>(agent2, agent1, loc1, loc2, timestep));
+                    ++semi_cardinal_goal_conflicts_found;
+                }
 			}
 			else
 			{
-				if (loc2 >= 0)
-					node.semiCardinalConf.push_back(std::make_shared<Conflict>(agent2, agent1, loc2, loc1, timestep));  // Make sure the non-cardinal agent is first
-				else
-					node.semiCardinalConf.push_back(std::make_shared<Conflict>(agent2, agent1, loc1, loc2, timestep));  // Make sure the non-cardinal agent is first
+				if (loc2 >= 0) {
+                    node.semiCardinalConf.push_back(
+                            std::make_shared<Conflict>(agent2, agent1, loc2, loc1, timestep));
+                    ++semi_cardinal_conflicts_found;
+                }
+				else {
+                    node.semiCardinalConf.push_back(
+                            std::make_shared<Conflict>(agent2, agent1, loc1, loc2, timestep));
+                    ++semi_cardinal_conflicts_found;
+                }
 			}
 		}
 		else
 		{
 			node.nonCardinalConf.push_back(con);
+			++non_cardinal_conflicts_found;
 		}
 
 		node.unknownConf.pop_back();  // Only pop it from unknown after we put it in the correct bin
@@ -984,13 +986,14 @@ void ICBSSearch::classifyConflicts(ICBSNode &node, ConflictAvoidanceTable* cat /
 // Primary priority - cardinal conflicts, then semi-cardinal and non-cardinal conflicts
 std::shared_ptr<Conflict> ICBSSearch::getHighestPriorityConflict(ICBSNode &node)
 {
-    // TODO: Handle f-cardinal conflicts and semi-f-cardinal conflicts.
-    // They can appear if they're inherited from the parent
     if (!node.cardinalGoalConf.empty() && preferGoalConflicts)
     {
         conflictType = conflict_type::CARDINAL_GOAL;
-        node.left_will_increase = ICBSNode::WillCostIncrease::YES;
-        node.right_will_increase = ICBSNode::WillCostIncrease::YES;
+        node.left_cost_will_increase = ICBSNode::WillCostIncrease::YES;
+        node.right_cost_will_increase = ICBSNode::WillCostIncrease::YES;
+        node.left_f_will_increase = ICBSNode::WillCostIncrease::MAYBE;  // Hard to say no without generating the child,
+                                                                        // new cardinal conflicts might emerge
+        node.right_f_will_increase = ICBSNode::WillCostIncrease::YES;
         // Find the conflict with the highest cost increase for the at-goal node (linearly)
         std::shared_ptr<Conflict> ret;
         int best_cost_increase = 0;
@@ -1004,25 +1007,37 @@ std::shared_ptr<Conflict> ICBSSearch::getHighestPriorityConflict(ICBSNode &node)
         }
         return ret;
     }
+
 	if (!node.cardinalConf.empty() || !node.cardinalGoalConf.empty())
 	{
-		conflictType = conflict_type::CARDINAL;
-        node.left_will_increase = ICBSNode::WillCostIncrease::YES;
-        node.right_will_increase = ICBSNode::WillCostIncrease::YES;
+		conflictType = conflict_type::CARDINAL;  // Even if it's cardinal-goal, we'll report it as cardinal
+		node.left_cost_will_increase = ICBSNode::WillCostIncrease::YES;
+		node.right_cost_will_increase = ICBSNode::WillCostIncrease::YES;
+		node.left_f_will_increase = ICBSNode::WillCostIncrease::MAYBE;  // Hard to say no without generating the child,
+		                                                                // new cardinal conflicts might emerge
+		node.right_f_will_increase = ICBSNode::WillCostIncrease::MAYBE;  // Hard to say no without generating the child,
+                                                                         // new cardinal conflicts might emerge
         if (preferGoalConflicts)  // We would've entered their block above if there were any
 		    return getHighestPriorityConflict(node, node.cardinalConf);
         else {
-            auto temp = node.cardinalGoalConf;
+            auto temp = node.cardinalGoalConf;  // A full copy
             for (const auto& conf : node.cardinalConf)
                 temp.push_back(conf);
             return getHighestPriorityConflict(node, temp);
         }
 	}
-	else if (!node.semiCardinalGoalConf.empty() && preferGoalConflicts)
+
+	if (!node.semiCardinalGoalConf.empty() && preferGoalConflicts)
     {
         conflictType = conflict_type::SEMICARDINAL_GOAL;
-        node.left_will_increase = ICBSNode::WillCostIncrease::NO;
-        node.right_will_increase = ICBSNode::WillCostIncrease::YES;  // We made sure the cardinal agent is second
+        node.left_cost_will_increase = ICBSNode::WillCostIncrease::NO;  // Even with disjoint splitting, the cost of the
+                                                                        // left agent will not increase. I thought hard
+                                                                        // about it.
+        node.right_cost_will_increase = ICBSNode::WillCostIncrease::YES;  // We made sure the cardinal agent is second
+        node.left_f_will_increase = ICBSNode::WillCostIncrease::MAYBE;  // Hard to say no without generating the child,
+                                                                        // new cardinal conflicts might emerge
+        node.right_f_will_increase = ICBSNode::WillCostIncrease::MAYBE;  // Hard to say no without generating the child,
+                                                                         // new cardinal conflicts might emerge
         // Find the conflict with the highest cost increase for the at-goal node (linearly)
         std::shared_ptr<Conflict> ret;
         int best_cost_increase = 0;
@@ -1036,11 +1051,16 @@ std::shared_ptr<Conflict> ICBSSearch::getHighestPriorityConflict(ICBSNode &node)
         }
         return ret;
     }
-	else if (!node.semiCardinalConf.empty() || !node.semiCardinalGoalConf.empty())
+
+	if (!node.semiCardinalConf.empty() || !node.semiCardinalGoalConf.empty())
 	{
 		conflictType = conflict_type::SEMICARDINAL;
-        node.left_will_increase = ICBSNode::WillCostIncrease::NO;
-        node.right_will_increase = ICBSNode::WillCostIncrease::YES;  // We made sure the cardinal agent is second
+        node.left_cost_will_increase = ICBSNode::WillCostIncrease::NO;
+        node.right_cost_will_increase = ICBSNode::WillCostIncrease::YES;  // We made sure the cardinal agent is second
+        node.left_f_will_increase = ICBSNode::WillCostIncrease::MAYBE;  // Hard to say no without generating the child,
+                                                                        // new cardinal conflicts might emerge
+        node.right_f_will_increase = ICBSNode::WillCostIncrease::MAYBE;  // Hard to say no without generating the child,
+                                                                         // new cardinal conflicts might emerge
         if (preferGoalConflicts)
 		    return getHighestPriorityConflict(node, node.semiCardinalConf);  // We would've entered their block above if there were any
         else {
@@ -1053,19 +1073,29 @@ std::shared_ptr<Conflict> ICBSSearch::getHighestPriorityConflict(ICBSNode &node)
 	}
 	else if (!node.nonCardinalConf.empty()) {
         conflictType = conflict_type::NONCARDINAL;
-        node.left_will_increase = ICBSNode::WillCostIncrease::NO;
-        node.right_will_increase = ICBSNode::WillCostIncrease::NO;
+        node.left_cost_will_increase = ICBSNode::WillCostIncrease::NO;
+        node.right_cost_will_increase = ICBSNode::WillCostIncrease::NO;
+        node.left_f_will_increase = ICBSNode::WillCostIncrease::MAYBE;  // Hard to say no without generating the child,
+                                                                        // new cardinal conflicts might emerge
+        node.right_f_will_increase = ICBSNode::WillCostIncrease::MAYBE;  // Hard to say no without generating the child,
+                                                                         // new cardinal conflicts might emerge
         return getHighestPriorityConflict(node, node.nonCardinalConf);
     }
 	else if (!node.unknownConf.empty())  // If classifyConflicts timed out before any conflict was classified, this can happen
     {
         conflictType = conflict_type::NONCARDINAL;
-        node.left_will_increase = ICBSNode::WillCostIncrease::NO;
-        node.right_will_increase = ICBSNode::WillCostIncrease::NO;
+        node.left_cost_will_increase = ICBSNode::WillCostIncrease::NO;
+        node.right_cost_will_increase = ICBSNode::WillCostIncrease::NO;
+        node.left_f_will_increase = ICBSNode::WillCostIncrease::MAYBE;  // Hard to say no without generating the child,
+                                                                        // new cardinal conflicts might emerge
+        node.right_f_will_increase = ICBSNode::WillCostIncrease::MAYBE;  // Hard to say no without generating the child,
+                                                                         // new cardinal conflicts might emerge
         return getHighestPriorityConflict(node, node.unknownConf);
 	} else {
-        node.left_will_increase = ICBSNode::WillCostIncrease::NO;  // Just to be tidy
-        node.right_will_increase = ICBSNode::WillCostIncrease::NO;
+        node.left_cost_will_increase = ICBSNode::WillCostIncrease::NO;  // No conflicts - no children
+        node.right_cost_will_increase = ICBSNode::WillCostIncrease::NO;
+        node.left_f_will_increase = ICBSNode::WillCostIncrease::NO;
+        node.right_f_will_increase = ICBSNode::WillCostIncrease::NO;
         return nullptr;
     }
 }
@@ -1970,6 +2000,16 @@ std::tuple<ICBSNode *, bool> ICBSSearch::generateChild(ICBSNode *child, Conflict
 		}
 	}
 
+	uint64_t delta_g = child->g_val - child->parent->g_val;
+    if (delta_g == 0)
+        ++num_delta_g_0;
+    else if (delta_g == 1)
+        ++num_delta_g_1;
+    else {
+        sum_delta_g_2_or_more += delta_g;
+        ++num_delta_g_2_or_more;
+    }
+
 	// compute h value
 	if (h > 0) { // from partial expansion
 		child->h_val = max(h, child->parent->h_val);  // The paren't H is still valid, since we haven't replanned, and might be much larger
@@ -1986,9 +2026,11 @@ std::tuple<ICBSNode *, bool> ICBSSearch::generateChild(ICBSNode *child, Conflict
 	if (!child->partialExpansion)
 	{
 		findConflicts(*child);
-	}
-
-	child->count_conflicts();
+		child->count_conflicts();
+		sum_num_conflicts += child->num_of_conflicts;
+		++num_num_conflicts;
+	} else
+		child->count_conflicts();  // Just so it has some count and not zero, even if the count will be overridden later
 
 	if (screen) // check the solution
 		arePathsConsistentWithConstraints(parent_paths, child);
@@ -2028,6 +2070,8 @@ std::tuple<ICBSNode *, bool> ICBSSearch::generateChild(ICBSNode *child, Conflict
 		findConflicts(*parent, agents_with_new_paths);
 		int old_parent_conflict_count = parent->num_of_conflicts;
 		parent->count_conflicts();
+        sum_num_conflicts += parent->num_of_conflicts;
+        ++num_num_conflicts;
 		if (parent->num_of_conflicts >= old_parent_conflict_count) {
 			cerr << "Same number of conflicts?? parent conflicts:" << endl;
 			printConflicts(*parent);
@@ -2169,13 +2213,13 @@ bool ICBSSearch::findPathForSingleAgent(ICBSNode *node, ConflictAvoidanceTable *
 			if (foundSol) {
                 if (
                         (node->parent != nullptr &&  // We're running best-first traversal
-                            (((node->parent->left_will_increase == ICBSNode::WillCostIncrease::NO) && node->is_left_child) ||
-                             ((node->parent->right_will_increase == ICBSNode::WillCostIncrease::NO) && !node->is_left_child))
+                            (((node->parent->left_cost_will_increase == ICBSNode::WillCostIncrease::NO) && node->is_left_child) ||
+                             ((node->parent->right_cost_will_increase == ICBSNode::WillCostIncrease::NO) && !node->is_left_child))
                         ) ||
 
                         (node->parent == nullptr &&  // We're running iterative-deepening or DFS traversal
-                            (((node->left_will_increase == ICBSNode::WillCostIncrease::NO) && (ag == get<0>(*node->conflict))) ||
-                             ((node->right_will_increase == ICBSNode::WillCostIncrease::NO) && (ag == get<1>(*node->conflict))))
+                            (((node->left_cost_will_increase == ICBSNode::WillCostIncrease::NO) && (ag == get<0>(*node->conflict))) ||
+                             ((node->right_cost_will_increase == ICBSNode::WillCostIncrease::NO) && (ag == get<1>(*node->conflict))))
                         )
                 ) {
                     if (node->lpas[ag]->path_cost !=
@@ -2197,13 +2241,13 @@ bool ICBSSearch::findPathForSingleAgent(ICBSNode *node, ConflictAvoidanceTable *
                     foundSol = node->lpas[ag]->findBetterPath(*cat, start + time_limit * CLOCKS_PER_SEC);
                 } else if (
                         (node->parent != nullptr &&  // We're running best-first traversal
-                            (((node->parent->left_will_increase == ICBSNode::WillCostIncrease::YES) && node->is_left_child) ||
-                             ((node->parent->right_will_increase == ICBSNode::WillCostIncrease::YES) && !node->is_left_child))
+                            (((node->parent->left_cost_will_increase == ICBSNode::WillCostIncrease::YES) && node->is_left_child) ||
+                             ((node->parent->right_cost_will_increase == ICBSNode::WillCostIncrease::YES) && !node->is_left_child))
                         ) ||
 
                         (node->parent == nullptr &&  // We're running iterative-deepening traversal
-                            (((node->left_will_increase == ICBSNode::WillCostIncrease::YES) && (ag == get<0>(*node->conflict))) ||
-                             ((node->right_will_increase == ICBSNode::WillCostIncrease::YES) && (ag == get<1>(*node->conflict))))
+                            (((node->left_cost_will_increase == ICBSNode::WillCostIncrease::YES) && (ag == get<0>(*node->conflict))) ||
+                             ((node->right_cost_will_increase == ICBSNode::WillCostIncrease::YES) && (ag == get<1>(*node->conflict))))
                         )
                 ) {
                     if (node->lpas[ag]->path_cost <= ((*node->all_paths)[ag])->size() - 1) {  // TODO: Support non-unit edge costs
@@ -2324,10 +2368,22 @@ bool ICBSSearch::finishPartialExpansion(ICBSNode *node, ConflictAvoidanceTable *
 	    }
 	}
 
+	uint64_t delta_g = node->g_val - node->parent->g_val;
+    if (delta_g == 0)
+        ++num_delta_g_0;
+    else if (delta_g == 1)
+        ++num_delta_g_1;
+    else {
+        sum_delta_g_2_or_more += delta_g;
+        ++num_delta_g_2_or_more;
+    }
+
 	node->h_val = max(node->parent->f_val - node->g_val, 0);  // Clear the partial expansion's H - it was used up
 	node->f_val = node->g_val + node->h_val;
 	findConflicts(*node);  // Conflicts involving agents whose paths were unchanged in this node were already copied from the parent
 	node->count_conflicts();
+    sum_num_conflicts += node->num_of_conflicts;
+    ++num_num_conflicts;
 
 	HL_num_reexpanded++;
 	node->partialExpansion = false;
@@ -2640,17 +2696,9 @@ void ICBSSearch::printPaths(vector<Path *> &the_paths, int max_len) const
 
 void ICBSSearch::printConflicts(const ICBSNode &curr) const
 {
-	for (const auto& conflict: curr.fCardinalConf)
-	{
-		std::cout << "F-cardinal " << (*conflict) << std::endl;
-	}
 	for (const auto& conflict: curr.cardinalGoalConf)
 	{
 		std::cout << "Cardinal-goal " << (*conflict) << std::endl;
-	}
-	for (const auto& conflict: curr.semiFCardinalConf)
-	{
-		std::cout << "Semi-f-cardinal " << (*conflict) << std::endl;
 	}
 	for (const auto& conflict: curr.cardinalConf)
 	{
@@ -2695,7 +2743,17 @@ void ICBSSearch::printConstraints(const ICBSNode* n) const
 
 void ICBSSearch::printResults() const
 {
-	std::cout << "Status,Cost,Focal Delta,Root Cost,Root f,Wall PrepTime,PrepTime,Wall MDD Time,MDD Time,"
+	std::cout << "Status,Cost,Focal Delta,Root Cost,Root f,"
+                 "F-Cardinal Conflicts,G-Cardinal Goal Conflicts,Semi-F-Cardinal Conflicts,"
+                 "G-Cardinal Conflicts,Semi-G-Cardinal Goal Conflicts,Semi-G-Cardinal Conflicts,"
+                 "Non-Cardinal Conflicts,"
+                 "deltaH_0,deltaH_-1,deltaH_1,sum_deltaH_le_-2,count_deltaH_le_-2,sum_deltaH_ge_2,count_deltaH_ge_2,"
+                 "deltaG_0,deltaG_1,sum_deltaG_ge_2,count_deltaG_ge_2,"
+                 "deltaF_0,deltaF_1,sum_deltaF_ge_2,count_deltaF_ge_2,"
+                 "deltaF_0_deltaG_1,deltaF_0_deltaG_0,"
+                 "deltaF_1_deltaG_2,deltaF_1_deltaG_1,deltaF_1_deltaG_0,"
+                 "sum_num_conflicts,count_num_conflicts,"
+                 "Wall PrepTime,PrepTime,Wall MDD Time,MDD Time,"
 				 "Wall HL Heuristic Time,HL Heuristic Time,"
                  "Wall CAT Time,CAT Time,Wall HL Node Verification Time,HL Node Verification Time,"
 				 "Wall Up&Down Time,Up&Down Time,HL Expanded,HL Generated,LL Expanded,LL Generated,Wall HL runtime,HL runtime,"
@@ -2715,6 +2773,21 @@ void ICBSSearch::printResults() const
 	std::cout << solution_cost << "," <<
 		min_f_val - root_node->f_val << "," <<
 		root_node->g_val << "," << root_node->f_val << "," <<
+		f_cardinal_conflicts_found << "," <<
+		cardinal_goal_conflicts_found << "," <<
+		semi_f_cardinal_conflicts_found << "," <<
+		cardinal_conflicts_found << "," <<
+		semi_cardinal_goal_conflicts_found << "," <<
+		semi_cardinal_conflicts_found << "," <<
+		non_cardinal_conflicts_found << "," <<
+		num_delta_h_0 << "," << num_delta_h_minus_1 << "," << num_delta_h_1 << "," <<
+		sum_delta_h_minus_2_or_more << "," << num_delta_h_minus_2_or_more << "," <<
+		sum_delta_h_2_or_more << "," << num_delta_h_2_or_more << "," <<
+		num_delta_g_0 << "," << num_delta_g_1 << "," << sum_delta_g_2_or_more << "," << num_delta_g_2_or_more << "," <<
+		num_delta_f_0 << "," << num_delta_f_1 << "," << sum_delta_f_2_or_more << "," << num_delta_f_2_or_more << "," <<
+		num_delta_f_0_delta_g_1 << "," << num_delta_f_0_delta_g_0 << "," <<
+		num_delta_f_1_delta_g_2 << "," << num_delta_f_1_delta_g_1 << "," << num_delta_f_1_delta_g_0 << "," <<
+		sum_num_conflicts << "," << num_num_conflicts << "," <<
 		((float) wall_prepTime.count()) / 1000000000 << "," <<
 		((float) prepTime) / CLOCKS_PER_SEC << "," <<
 		((float) wall_mddTime.count()) / 1000000000 << "," <<
@@ -2745,7 +2818,17 @@ void ICBSSearch::saveResults(const string& outputFile, const string& agentFile, 
 	if (std::filesystem::exists(outputFile) == false)
 	{
 		stats.open(outputFile);
-		stats << "Cost,Focal Delta,Root Cost,Root f,Wall PrepTime,PrepTime,Wall MDD Time,MDD Time,"
+		stats << "Cost,Focal Delta,Root Cost,Root f,"
+                 "F-Cardinal Conflicts,G-Cardinal Goal Conflicts,Semi-F-Cardinal Conflicts,"
+                 "G-Cardinal Conflicts,Semi-G-Cardinal Goal Conflicts,Semi-G-Cardinal Conflicts,"
+                 "Non-Cardinal Conflicts,"
+                 "deltaH_0,deltaH_-1,deltaH_1,sum_deltaH_le_-2,count_deltaH_le_-2,sum_deltaH_ge_2,count_deltaH_ge_2,"
+                 "deltaG_0,deltaG_1,sum_deltaG_ge_2,count_deltaG_ge_2,"
+                 "deltaF_0,deltaF_1,sum_deltaF_ge_2,count_deltaF_ge_2,"
+                 "deltaF_0_deltaG_1,deltaF_0_deltaG_0,"
+                 "deltaF_1_deltaG_2,deltaF_1_deltaG_1,deltaF_1_deltaG_0,"
+                 "sum_num_conflicts,count_num_conflicts,"
+                 "Wall PrepTime,PrepTime,Wall MDD Time,MDD Time,"
 				 "Wall HL Heuristic Time,HL Heuristic Time,"
 		         "Wall CAT Time,CAT Time,Wall HL Node Verification Time,HL Node Verification Time,"
 				 "Wall Up&Down Time,Up&Down Time,HL Expanded,HL Generated,LL Expanded,LL Generated,Wall HL runtime,HL runtime,"
@@ -2756,6 +2839,21 @@ void ICBSSearch::saveResults(const string& outputFile, const string& agentFile, 
 	stats << solution_cost << "," <<
 		min_f_val - root_node->f_val << "," <<
 		root_node->g_val << "," << root_node->f_val << "," <<
+		f_cardinal_conflicts_found << "," <<
+		cardinal_goal_conflicts_found << "," <<
+		semi_f_cardinal_conflicts_found << "," <<
+		cardinal_conflicts_found << "," <<
+		semi_cardinal_goal_conflicts_found << "," <<
+		semi_cardinal_conflicts_found << "," <<
+		non_cardinal_conflicts_found << "," <<
+		num_delta_h_0 << "," << num_delta_h_minus_1 << "," << num_delta_h_1 << "," <<
+		sum_delta_h_minus_2_or_more << "," << num_delta_h_minus_2_or_more << "," <<
+		sum_delta_h_2_or_more << "," << num_delta_h_2_or_more << "," <<
+		num_delta_g_0 << "," << num_delta_g_1 << "," << sum_delta_g_2_or_more << "," << num_delta_g_2_or_more << "," <<
+		num_delta_f_0 << "," << num_delta_f_1 << "," << sum_delta_f_2_or_more << "," << num_delta_f_2_or_more << "," <<
+		num_delta_f_0_delta_g_1 << "," << num_delta_f_0_delta_g_0 << "," <<
+		num_delta_f_1_delta_g_2 << "," << num_delta_f_1_delta_g_1 << "," << num_delta_f_1_delta_g_0 << "," <<
+		sum_num_conflicts << "," << num_num_conflicts << "," <<
 		((float) wall_prepTime.count()) / 1000000000 << "," <<
 		((float) prepTime) / CLOCKS_PER_SEC << "," <<
 		((float) wall_mddTime.count()) / 1000000000 << "," <<
@@ -3022,6 +3120,51 @@ bool ICBSSearch::runICBSSearch()
                 hlHeuristicTime += std::clock() - hlHeuristicStart;
                 wall_hlHeuristicTime += std::chrono::system_clock::now() - wall_hlHeuristicStart;
                 curr->f_val = curr->g_val + curr->h_val;
+                if (curr->parent != nullptr) {
+                    int64_t delta_h = curr->h_val - curr->parent->h_val;
+                    uint64_t delta_f = curr->f_val - curr->parent->f_val;
+
+                    if (delta_h == 0)
+                        ++num_delta_h_0;
+                    else if (delta_h == 1)
+                        ++num_delta_h_1;
+                    else if (delta_h == -1)
+                        ++num_delta_h_minus_1;
+                    else if (delta_h < -1) {
+                        sum_delta_h_minus_2_or_more += delta_h;
+                        ++num_delta_h_minus_2_or_more;
+                    } else {
+                        sum_delta_h_2_or_more += delta_h;
+                        ++num_delta_h_2_or_more;
+                    }
+
+                    if (delta_f == 0) {
+                        ++num_delta_f_0;
+                        // delta_h == 1 is impossible because the cost can't decrease
+                        if (delta_h == 0)
+                            ++num_delta_f_0_delta_g_0;  // We resolved a non-cardinal conflict (or semi-cardinal from the
+                            // non-cardinal side) and didn't get a new cardinal conflict in the
+                            // new path (more likely)
+                        else if (delta_h == -1)
+                            ++num_delta_f_0_delta_g_1;  // We resolved a cardinal conflict from a side that was in the MVC
+                    } else if (delta_f == 1) {
+                        ++num_delta_f_1;
+                        if (delta_h == 1)
+                            ++num_delta_f_1_delta_g_0;  // We resolved a non-cardinal (or semi-cardinal from the
+                            // non-cardinal side) conflict and got a new cardinal conflict
+                            // (less likely)
+                        else if (delta_h == 0)
+                            ++num_delta_f_1_delta_g_1;  // We resolved a semi-cardinal conflict from the cardinal side
+                            // or a cardinal conflict from a side that wasn't in the MVC
+                        else if (delta_h == -1)
+                            ++num_delta_f_1_delta_g_2;  // We resolved a cardinal goal conflict from the goal side and the
+                        // goal side was in the MVC or
+                        // resolved a cardinal conflict in a disjoint way and got lucky
+                    } else {
+                        sum_delta_f_2_or_more += delta_f;
+                        ++num_delta_f_2_or_more;
+                    }
+                }
 
                 if (screen == 1) {
                     std::cout << std::endl << "****** Computed h for #" << curr->time_generated <<
@@ -3456,9 +3599,55 @@ std::tuple<bool, int> ICBSSearch::do_idcbsh_iteration(ICBSNode *curr,
 		classifyConflicts(*curr, &cat);  // classify conflicts
 		curr->conflict = getHighestPriorityConflict(*curr);  // choose one to work on
 
+		int orig_h = curr->h_val;
+		int orig_f = curr->f_val;
 		if (!after_bypass)
 			curr->h_val = computeHeuristic(*curr);
 		curr->f_val = curr->g_val + curr->h_val;
+		int64_t delta_h = curr->h_val - orig_h;
+        if (delta_h == 0)
+            ++num_delta_h_0;
+        else if (delta_h == 1)
+            ++num_delta_h_1;
+        else if (delta_h == -1)
+            ++num_delta_h_minus_1;
+        else if (delta_h < -1) {
+            sum_delta_h_minus_2_or_more += delta_h;
+            ++num_delta_h_minus_2_or_more;
+        }
+        else {
+            sum_delta_h_2_or_more += delta_h;
+            ++num_delta_h_2_or_more;
+        }
+        uint64_t delta_f = curr->f_val - orig_f;
+        if (delta_f == 0) {
+            ++num_delta_f_0;
+            // delta_h == 1 is impossible because the cost can't decrease
+            if (delta_h == 0)
+                ++num_delta_f_0_delta_g_0;  // We resolved a non-cardinal conflict (or semi-cardinal from the
+                // non-cardinal side) and didn't get a new cardinal conflict in the
+                // new path (more likely)
+            else if (delta_h == -1)
+                ++num_delta_f_0_delta_g_1;  // We resolved a cardinal conflict from a side that was in the MVC
+        }
+        else if (delta_f == 1) {
+            ++num_delta_f_1;
+            if (delta_h == 1)
+                ++num_delta_f_1_delta_g_0;  // We resolved a non-cardinal (or semi-cardinal from the
+                // non-cardinal side) conflict and got a new cardinal conflict
+                // (less likely)
+            else if (delta_h == 0)
+                ++num_delta_f_1_delta_g_1;  // We resolved a semi-cardinal conflict from the cardinal side
+                // or a cardinal conflict from a side that wasn't in the MVC
+            else if (delta_h == -1)
+                ++num_delta_f_1_delta_g_2;  // We resolved a cardinal goal conflict from the goal side and the
+            // goal side was in the MVC or
+            // resolved a cardinal conflict in a disjoint way and got lucky
+        }
+        else {
+            sum_delta_f_2_or_more += delta_f;
+            ++num_delta_f_2_or_more;
+        }
 
 		if (screen == 1) {
 			if (!after_bypass) {
@@ -3518,18 +3707,28 @@ std::tuple<bool, int> ICBSSearch::do_idcbsh_iteration(ICBSNode *curr,
 	int orig_num_conflicts = curr->num_of_conflicts;
 	int orig_time_generated = curr->time_generated;
 	int orig_time_expanded = curr->time_expanded;
-	ICBSNode::WillCostIncrease orig_left_will_increase = curr->left_will_increase;
-	ICBSNode::WillCostIncrease orig_right_will_increase = curr->right_will_increase;
-	vector<PathEntry> path_backup = *paths[agent1_id];
+	ICBSNode::WillCostIncrease orig_left_cost_will_increase = curr->left_cost_will_increase;
+	ICBSNode::WillCostIncrease orig_right_cost_will_increase = curr->right_cost_will_increase;
+	ICBSNode::WillCostIncrease orig_left_f_will_increase = curr->left_f_will_increase;
+	ICBSNode::WillCostIncrease orig_right_f_will_increase = curr->right_f_will_increase;
+	Path path_backup = *paths[agent1_id];
 
 	curr->agent_id = agent1_id;
 	auto [replan1_success, constraint1_added] = idcbsh_add_constraint_and_replan(
 			curr, cat, next_threshold - curr->g_val - 1);  // If the cost will be larger than that, don't bother generating the node
 															           // - it won't even update next_threshold
-	int g_delta = curr->g_val - orig_g_val;
-	// Subtract the g_delta from h, just to be nice:
-	if (curr->h_val >= g_delta)
-		curr->h_val -= g_delta;
+	int delta_g = curr->g_val - orig_g_val;
+    if (delta_g == 0)
+        ++num_delta_g_0;
+    else if (delta_g == 1)
+        ++num_delta_g_1;
+    else {
+        sum_delta_g_2_or_more += delta_g;
+        ++num_delta_g_2_or_more;
+    }
+	// Subtract the delta_g from h, just to be nice:
+	if (curr->h_val >= delta_g)
+		curr->h_val -= delta_g;
 	else
 		curr->h_val = 0;
 	curr->f_val = curr->g_val + curr->h_val;
@@ -3557,6 +3756,8 @@ std::tuple<bool, int> ICBSSearch::do_idcbsh_iteration(ICBSNode *curr,
 		hl_node_verification_runtime += std::clock() - hl_node_verification_start;
 		wall_hl_node_verification_runtime += std::chrono::system_clock::now() - wall_hl_node_verification_start;
 		curr->count_conflicts();
+		sum_num_conflicts += curr->num_of_conflicts;
+		++num_num_conflicts;
 
 		if (screen)
 		    std::cout << "Generated left child #" << curr->time_generated <<
@@ -3568,7 +3769,7 @@ std::tuple<bool, int> ICBSSearch::do_idcbsh_iteration(ICBSNode *curr,
             if (screen) {
                 std::cout << "Left child found a bypass - adopting its new paths without splitting." << std::endl;
             }
-            idcbsh_unconstrain(curr, cat, path_backup, orig_conflict, orig_makespan, orig_g_val, orig_h_val, orig_left_will_increase, orig_right_will_increase, true);
+            idcbsh_unconstrain(curr, cat, path_backup, orig_conflict, orig_makespan, orig_g_val, orig_h_val, orig_left_cost_will_increase, orig_right_cost_will_increase, true);
             bypass = true;
             curr->time_generated = orig_time_generated;  // Simulate adopting the child's path and continuing with the parent
 		}
@@ -3614,7 +3815,7 @@ std::tuple<bool, int> ICBSSearch::do_idcbsh_iteration(ICBSNode *curr,
 
 	// A goal was not found with a cost below the threshold in the left child
 	if (constraint1_added)
-		idcbsh_unconstrain(curr, cat, path_backup, orig_conflict, orig_makespan, orig_g_val, orig_h_val, orig_left_will_increase, orig_right_will_increase);
+		idcbsh_unconstrain(curr, cat, path_backup, orig_conflict, orig_makespan, orig_g_val, orig_h_val, orig_left_cost_will_increase, orig_right_cost_will_increase);
 
 	if (screen)
 		cout << "Moving to the right child of #" << curr->time_generated << endl;
@@ -3624,10 +3825,10 @@ std::tuple<bool, int> ICBSSearch::do_idcbsh_iteration(ICBSNode *curr,
 	auto [replan2_success, constraint2_added] = idcbsh_add_constraint_and_replan(
 			curr, cat, next_threshold - curr->g_val - 1);  // If the cost will be larger than that, don't bother generating the node
 															              // - it won't even update next_threshold
-	g_delta = curr->g_val - orig_g_val;
-	// Subtract the g_delta from h, just to be nice:
-	if (curr->h_val >= g_delta)
-		curr->h_val -= g_delta;
+	delta_g = curr->g_val - orig_g_val;
+	// Subtract the delta_g from h, just to be nice:
+	if (curr->h_val >= delta_g)
+		curr->h_val -= delta_g;
 	else
 		curr->h_val = 0;
 	curr->f_val = curr->g_val + curr->h_val;
@@ -3655,6 +3856,8 @@ std::tuple<bool, int> ICBSSearch::do_idcbsh_iteration(ICBSNode *curr,
             }
 		}
 		curr->count_conflicts();
+        sum_num_conflicts += curr->num_of_conflicts;
+        ++num_num_conflicts;
 
 		if (screen)
 		    std::cout << "Generated right child #" << curr->time_generated <<
@@ -3691,7 +3894,7 @@ std::tuple<bool, int> ICBSSearch::do_idcbsh_iteration(ICBSNode *curr,
 	}
 	curr->agent_id = agent2_id;  // The recursive call may have changed it, and it needs to be restored before unconstrain is called
 	if (constraint2_added)
-		idcbsh_unconstrain(curr, cat, path_backup, orig_conflict, orig_makespan, orig_g_val, orig_h_val, orig_left_will_increase, orig_right_will_increase);
+		idcbsh_unconstrain(curr, cat, path_backup, orig_conflict, orig_makespan, orig_g_val, orig_h_val, orig_left_cost_will_increase, orig_right_cost_will_increase);
 	curr->agent_id = orig_agent_id;  // Just to be clean
 	if (screen)
 		cout << "Finished exploring the subtree under #" << curr->time_generated << " with f<=" << threshold << "* " << focal_w << " without finding a goal node." << endl;
@@ -3706,7 +3909,7 @@ tuple<bool, bool> ICBSSearch::idcbsh_add_constraint_and_replan(ICBSNode *node,
 	vector<Path *> &paths = *node->all_paths;
 	const auto& [agent1_id, agent2_id, location1, location2, timestep] = *node->conflict;
 	int oldG = node->g_val;
-	ICBSNode::WillCostIncrease costMayIncrease = node->agent_id == agent1_id ? node->left_will_increase : node->right_will_increase;
+	ICBSNode::WillCostIncrease costMayIncrease = node->agent_id == agent1_id ? node->left_cost_will_increase : node->right_cost_will_increase;
 
 	int minNewCost;
 	if (timestep >= (int)paths[node->agent_id]->size())  // Conflict happens after the agent reaches its goal.
@@ -3763,8 +3966,8 @@ tuple<bool, bool> ICBSSearch::idcbsh_add_constraint_and_replan(ICBSNode *node,
 void ICBSSearch::idcbsh_unconstrain(ICBSNode *node, ConflictAvoidanceTable &cat,
 									Path &path_backup, shared_ptr<Conflict> &conflict_backup,
 									int makespan_backup, int g_val_backup, int h_val_backup,
-                                    ICBSNode::WillCostIncrease left_will_increase_backup,
-                                    ICBSNode::WillCostIncrease right_will_increase_backup,
+                                    ICBSNode::WillCostIncrease left_cost_will_increase_backup,
+                                    ICBSNode::WillCostIncrease right_cost_will_increase_backup,
 									bool just_unconstrain)
 {
 	vector<Path *> &paths = *node->all_paths;
@@ -3811,6 +4014,7 @@ void ICBSSearch::idcbsh_unconstrain(ICBSNode *node, ConflictAvoidanceTable &cat,
 	hl_node_verification_runtime += std::clock() - hl_node_verification_start;
 	wall_hl_node_verification_runtime += std::chrono::system_clock::now() - wall_hl_node_verification_start;
 	node->count_conflicts();
+    // No need to update the num_conflicts statistics
 	classifyConflicts(*node); // classify and choose conflicts
 								 // (the choice isn't guaranteed to be stable nor even deterministic,
 								 // so I'm not assigning the result, I'm using a backup:
@@ -3820,12 +4024,12 @@ void ICBSSearch::idcbsh_unconstrain(ICBSNode *node, ConflictAvoidanceTable &cat,
 	node->makespan = makespan_backup;
 	node->g_val = g_val_backup;
 	node->h_val = h_val_backup;
-	node->left_will_increase = left_will_increase_backup;
-	node->right_will_increase = right_will_increase_backup;
+	node->left_cost_will_increase = left_cost_will_increase_backup;
+	node->right_cost_will_increase = right_cost_will_increase_backup;
 	node->f_val = node->g_val + node->h_val;
 	// Note it's safe not to do that after a bypass is found: the g, h, makespan and f did not change,
-	// the conflict is going to be set to nullptr anyway before the recursive call, and left_will_increase and
-	// right_will_increase will be overridden in the recursive call when the next conflict is chosen (or
+	// the conflict is going to be set to nullptr anyway before the recursive call, and left_cost_will_increase and
+	// right_cost_will_increase will be overridden in the recursive call when the next conflict is chosen (or
 	// the goal will is found)
 }
 
@@ -4034,6 +4238,8 @@ ICBSSearch::ICBSSearch(const MapLoader &ml, const AgentsLoader &al, double focal
 	allNodes_table.push_back(root_node);
 	findConflicts(*root_node);
 	root_node->count_conflicts();
+    sum_num_conflicts += root_node->num_of_conflicts;
+    ++num_num_conflicts;
 	min_f_val = root_node->f_val;
 	focal_list_threshold = min_f_val * focal_w;
 

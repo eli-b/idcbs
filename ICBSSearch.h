@@ -59,6 +59,45 @@ public:
 	uint64_t LL_num_expanded = 0;
 	uint64_t LL_num_generated = 0;
 	uint64_t HL_num_reexpanded = 0;
+
+	uint64_t f_cardinal_conflicts_found = 0;
+	uint64_t cardinal_goal_conflicts_found = 0;
+	uint64_t semi_f_cardinal_conflicts_found = 0;
+	uint64_t cardinal_conflicts_found = 0;
+	uint64_t semi_cardinal_goal_conflicts_found = 0;
+	uint64_t semi_cardinal_conflicts_found = 0;
+	uint64_t non_cardinal_conflicts_found = 0;
+
+	uint64_t num_delta_h_0 = 0;
+	uint64_t num_delta_h_minus_1 = 0;
+	uint64_t num_delta_h_1 = 0;
+	int64_t sum_delta_h_minus_2_or_more = 0;
+	uint64_t num_delta_h_minus_2_or_more = 0;
+	uint64_t sum_delta_h_2_or_more = 0;
+	uint64_t num_delta_h_2_or_more = 0;
+
+	uint64_t num_delta_g_0 = 0;
+	uint64_t num_delta_g_1 = 0;
+	uint64_t sum_delta_g_2_or_more = 0;
+	uint64_t num_delta_g_2_or_more = 0;
+
+	uint64_t num_delta_f_0 = 0;
+	uint64_t num_delta_f_1 = 0;
+	uint64_t sum_delta_f_2_or_more = 0;
+	uint64_t num_delta_f_2_or_more = 0;
+
+	uint64_t num_delta_f_0_delta_g_1 = 0;
+	uint64_t num_delta_f_0_delta_g_0 = 0;
+	// Other combinations possible with stronger heuristics
+
+	uint64_t num_delta_f_1_delta_g_2 = 0;
+	uint64_t num_delta_f_1_delta_g_1 = 0;
+	uint64_t num_delta_f_1_delta_g_0 = 0;
+	// Other combinations possible with stronger heuristics
+
+	uint64_t sum_num_conflicts = 0;
+	uint64_t num_num_conflicts = 0;  // Yes, probably same as num_generated
+
 	string max_mem;
 
 	// statistics of solution quality
@@ -126,6 +165,7 @@ private:
 	void copyConflicts(const vector<bool>& unchanged,
 		const vector<std::shared_ptr<Conflict>>& from, vector<std::shared_ptr<Conflict>>& to);
 	void clearConflictsOfAffectedAgents(bool *unchanged, vector<std::shared_ptr<Conflict>> &lst);
+	void updateConflictCounters(ICBSNode& node);
 
 	// branch
 	void branch(ICBSNode* parent, ICBSNode* child1, ICBSNode* child2);
@@ -172,7 +212,13 @@ private:
     GRBModel mvc_model;
     GRBVar* mvc_vars;
     inline void remove_model_constraints(vector<vector<vector<GRBConstr>>>& Constraints, vector<vector<bool>>& CG, vector<bool>& CgNodeDegrees);
-    inline void calcNodeDegrees(ICBSNode& curr, vector<int>& nodeDegrees);
+    inline void calc_mvc_mode_node_degrees(ICBSNode& curr, vector<int>& nodeDegrees);
+    inline void add_mvc_model_constraints_from_conflicts(vector<shared_ptr<Conflict>>& conflicts, vector<vector<bool>>& CG,
+                                                         vector<int>& CgNodeDegrees, vector<vector<vector<GRBConstr>>>& Constraints,
+                                                         int& num_of_nontrivial_CG_edges, vector<bool>& nodeHasNontrivialEdges,
+                                                         int& h);
+    inline void re_add_mvc_model_constraints_of_agent(vector<shared_ptr<Conflict>>& conflicts, int i,
+                                                      vector<vector<vector<GRBConstr>>>& Constraints);
 #endif
 
 	// tools
@@ -189,8 +235,8 @@ private:
 	                        ConflictAvoidanceTable &cat,
 	                        Path &path_backup,
 	                        shared_ptr<Conflict> &conflict_backup, int makespan_backup, int g_val_backup,
-	                        int h_val_backup, ICBSNode::WillCostIncrease left_will_increase_backup,
-                            ICBSNode::WillCostIncrease right_will_increase_backup,
+	                        int h_val_backup, ICBSNode::WillCostIncrease left_cost_will_increase_backup,
+                            ICBSNode::WillCostIncrease right_cost_will_increase_backup,
 	                        bool just_unconstrain = false);
 
     void update_cat_and_lpas(ICBSNode *prev_node, ICBSNode *curr,

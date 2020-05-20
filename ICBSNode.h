@@ -15,18 +15,14 @@ class ICBSSearch;
 class ICBSNode
 {
 public:
-	vector<std::shared_ptr<Conflict>> fCardinalConf;  // TODO: If we find a fully f-cardinal conflict we can push its node back in OPEN with h increased by 1
 	vector<std::shared_ptr<Conflict>> cardinalGoalConf;  // One side's F potentially increases by a lot
-	vector<std::shared_ptr<Conflict>> semiFCardinalConf;  // One side's F increases by at least 1
 	vector<std::shared_ptr<Conflict>> cardinalConf;
 	vector<std::shared_ptr<Conflict>> semiCardinalGoalConf;
 	vector<std::shared_ptr<Conflict>> semiCardinalConf;
 	vector<std::shared_ptr<Conflict>> nonCardinalConf;
 	vector<std::shared_ptr<Conflict>> unknownConf;  // All of those hold pointers just so the conflict member can be a pointer, which can be nullptr.
 	void count_conflicts() {
-		num_of_conflicts = (int) fCardinalConf.size() +
-						   (int) cardinalGoalConf.size() +
-						   (int) semiFCardinalConf.size() +
+		num_of_conflicts = (int) cardinalGoalConf.size() +
 						   (int) cardinalConf.size() +
 						   (int) semiCardinalGoalConf.size() +
 						   (int) semiCardinalConf.size() +
@@ -78,8 +74,12 @@ public:
         NO,
         MAYBE
     } WillCostIncrease;
-    WillCostIncrease left_will_increase = WillCostIncrease::MAYBE;
-    WillCostIncrease right_will_increase = WillCostIncrease::MAYBE;
+    WillCostIncrease left_cost_will_increase = WillCostIncrease::MAYBE;  // For disjoint splitting, left refers to the
+                                    // agent, not the node, since the agent that gets the positive/negative constraints
+                                    // is chosen at a later stage.
+    WillCostIncrease right_cost_will_increase = WillCostIncrease::MAYBE;
+    WillCostIncrease left_f_will_increase = WillCostIncrease::MAYBE;
+    WillCostIncrease right_f_will_increase = WillCostIncrease::MAYBE;
     bool is_left_child = false;
 
 	uint64_t time_expanded;
