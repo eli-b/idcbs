@@ -25,6 +25,7 @@ max_child_pref_options = 20
 prefer_f_cardinal = False
 prefer_goal_conflicts = False
 skip_according_to_output_file = True
+num_processes = 16
 
 agents_dir = abspath('agents')
 maps_dir = abspath('maps')
@@ -106,29 +107,29 @@ map_names = (
     'random-32-32-10',
     'random-32-32-20',
     'random-64-64-10',
-    # 'random-64-64-20',
-    # 'maze-128-128-1',
-    # 'maze-128-128-2',
-    # 'maze-128-128-10',
-    # 'maze-32-32-2',
-    # 'room-32-32-4',
-    # 'room-64-64-8',
-    # 'room-64-64-16',
-    # 'den312d',
-    # 'orz900d',
-    # 'ht_chantry',
-    # 'ht_mansion_n',
-    # 'lak303d',
-    # 'lt_gallowstemplar_n',
-    # 'w_woundedcoast',
-    # 'Berlin_1_256',
-    # 'Boston_0_256',
-    # 'Paris_1_256',
-    # 'warehouse-10-20-10-2-1',
-    # 'warehouse-10-20-10-2-2',
-    # 'warehouse-20-40-10-2-1',
-    # 'warehouse-20-40-10-2-2',
-    )
+    'random-64-64-20',
+    'maze-128-128-1',
+    'maze-128-128-2',
+    'maze-128-128-10',
+    'maze-32-32-2',
+    'room-32-32-4',
+    'room-64-64-8',
+    'room-64-64-16',
+    'den312d',
+    'orz900d',
+    'ht_chantry',
+    'ht_mansion_n',
+    'lak303d',
+    'lt_gallowstemplar_n',
+    'w_woundedcoast',
+    'Berlin_1_256',
+    'Boston_0_256',
+    'Paris_1_256',
+    'warehouse-10-20-10-2-1',
+    'warehouse-10-20-10-2-2',
+    'warehouse-20-40-10-2-1',
+    'warehouse-20-40-10-2-2',
+)
 # USC maps (with .agents files):
 # 'kiva_0.map',
 # 'roundabout_2.map',
@@ -227,7 +228,7 @@ pool = lock = nullcontext()
 result_objects = []
 queue = stop_token = None
 if in_multiprocessing_pool:
-    pool = Pool(processes=15)
+    pool = Pool(processes=num_processes)
     manager = Manager()
     queue = manager.Queue()  # A manager allows sharing a queue between multiple worker processes
     lock = manager.Lock()  # A manager allows sharing a lock between multiple worker processes
@@ -235,9 +236,9 @@ if in_multiprocessing_pool:
 with pool:
     for split_strategy, scen_index, map_name, scen_type in product(
             (
-                'WIDTH',
-                #'MVC_BASED',
-                #'NON_DISJOINT',
+                    #'WIDTH',
+                    #'MVC_BASED',
+                    'NON_DISJOINT',
             ), range(1, 26), map_names,
             (
                     'even',
@@ -287,7 +288,7 @@ with pool:
                   f'-a "/scen/{scen_file_name}" ' \
                   f'-k %s ' \
                   f'-o /output/%s -p {split_strategy} --screen 0 --seed {seed} ' \
-                  f'--cutoffTime={timeout_seconds} --verbosity 0 --heuristic {1 if use_heuristic else 0} ' \
+                  f'--cutoffTime={timeout_seconds} --verbosity 0 --heuristic {"CG" if use_heuristic else "NONE"} ' \
                   f'--focalW {focal_w} --childPrefBudget {child_pref_budget} --maxChildPrefOptions {max_child_pref_options} ' \
                   f'--prefer_f_cardinal {1 if prefer_f_cardinal else 0} ' \
                   f'--prefer_goal_conflicts {1 if prefer_goal_conflicts else 0}'
@@ -307,7 +308,7 @@ with pool:
                           f'-a "/scen/{scen_file_name}" ' \
                           f'-k {num_agents} ' \
                           f'-o /output/{output_file_name} -p {split_strategy} --screen 0 --seed {seed} ' \
-                          f'--cutoffTime={timeout_seconds} --verbosity 0 --heuristic {1 if use_heuristic else 0} ' \
+                          f'--cutoffTime={timeout_seconds} --verbosity 0 --heuristic {"CG" if use_heuristic else "NONE"} ' \
                           f'--focalW {focal_w} --childPrefBudget {child_pref_budget} --maxChildPrefOptions {max_child_pref_options} ' \
                           f'--prefer_f_cardinal {1 if prefer_f_cardinal else 0} ' \
                           f'--prefer_goal_conflicts {1 if prefer_goal_conflicts else 0}'
@@ -316,7 +317,7 @@ with pool:
                           f'-a "scen/{scen_file_name}" ' \
                           f'-k {num_agents} ' \
                           f'-o {output_file_name} -p {split_strategy} --screen 0 --seed {seed} ' \
-                          f'--cutoffTime={timeout_seconds} --verbosity 0 --heuristic {1 if use_heuristic else 0} ' \
+                          f'--cutoffTime={timeout_seconds} --verbosity 0 --heuristic {"CG" if use_heuristic else "NONE"} ' \
                           f'--focalW {focal_w} --childPrefBudget {child_pref_budget} --maxChildPrefOptions {max_child_pref_options} ' \
                           f'--prefer_f_cardinal {1 if prefer_f_cardinal else 0} ' \
                           f'--prefer_goal_conflicts {1 if prefer_goal_conflicts else 0}'
@@ -334,6 +335,7 @@ with pool:
                             f.write('-2,' + '=NA(),' * 23 + f'{time.time() - start_time},=NA(),{mem_limit},same as above,/scen/{scen_file_name},{num_agents}\n')
                         break
                     else:
+                        # 139 is SIGSEGV, BTW
                         raise
     if in_multiprocessing_pool:
         writer_process = Process(target=writer_job, args=(queue, output_file_name, stop_token, lock))
