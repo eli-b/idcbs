@@ -3,7 +3,7 @@
 
 
 // Put the path to the given goal node in the <path> vector
-void ICBSSingleAgentLLSearch::updatePath(const ICBSSingleAgentLLNode* goal, vector<PathEntry> &path)
+void ICBSSingleAgentLLSearch::updatePath(const ICBSSingleAgentLLNode* goal, Path &path)
 {
 	const ICBSSingleAgentLLNode* curr = goal;
 	int old_length = (int)path.size();
@@ -101,7 +101,7 @@ bool ICBSSingleAgentLLSearch::isConstrained(int direction, int next_id, int next
 // Since we don't have to find the SHORTEST path, we only use FOCAL (without OPEN) here and prune all nodes 
 // that cannot reach the goal at the given timestep
 // This is used to re-plan a (sub-)path between two positive constraints.
-bool ICBSSingleAgentLLSearch::findPath(vector<PathEntry> &path,
+bool ICBSSingleAgentLLSearch::findPath(Path &path,
 	const std::vector < std::unordered_map<int, ConstraintState > >& cons_table,
 	ConflictAvoidanceTable& cat,
 	const pair<int, int> &start, const pair<int, int>&goal, lowlevel_heuristic h_type)
@@ -191,7 +191,7 @@ bool ICBSSingleAgentLLSearch::findPath(vector<PathEntry> &path,
 // that satisfies all constraints in cons_table
 // while minimizing conflicts with paths in cat and put it in the given <path> vector
 // return true if a path was found (and update path) or false if no path exists
-bool ICBSSingleAgentLLSearch::findShortestPath(vector<PathEntry> &path,
+bool ICBSSingleAgentLLSearch::findShortestPath(Path &path,
 	const std::vector < std::unordered_map<int, ConstraintState > >& cons_table,
 	ConflictAvoidanceTable& cat,
 	const pair<int, int> &start, const pair<int, int>&goal, int earliestGoalTimestep, int lastGoalConsTime)

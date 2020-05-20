@@ -71,7 +71,7 @@ public:
 	conflict_type conflictType;
 	
 	// print
-	void printPaths(vector<vector<PathEntry> *> &paths, int max_len = 100) const;
+	void printPaths(vector<Path *> &paths, int max_len = 100) const;
 	void printResults() const;
 	void saveResults(const string& outputFile, const string& agentFile, const string& solver) const;
 
@@ -102,12 +102,12 @@ private:
 	ICBSNode* root_node;
 	ICBSNode* solution_node;
 	vector < ICBSSingleAgentLLSearch* > search_engines;  // used to find (single) agents' paths and mdd
-	vector<vector<PathEntry>*> paths;  // The paths of the node we're currently working on, also the paths of the solution once it's found
-	                                   // For best-first-search CBS, this is also the set of paths of the best node in OPEN.
-	                                   // This is not the case in DFS variants before the solution is found.
-	                                   // This trades the speed of rebuilding it each time we move to a new node for
-	                                   // the space of saving it on every node.
-	                                   // TODO: Why not keep it on every node, and populate it based on the parent?
+	vector<Path*> paths;  // The paths of the node we're currently working on, also the paths of the solution once it's found
+	                      // For best-first-search CBS, this is also the set of paths of the best node in OPEN.
+	                      // This is not the case in DFS variants before the solution is found.
+	                      // This trades the speed of rebuilding it each time we move to a new node for
+	                      // the space of saving it on every node.
+	                      // TODO: Why not keep it on every node, and populate it based on the parent?
 	vector<vector<PathEntry>> paths_found_initially;  // contains the initial path that was found for each agent
 
 	// print
@@ -142,13 +142,13 @@ private:
 	void buildConflictAvoidanceTable(const ICBSNode &node, int exclude_agent, ConflictAvoidanceTable &cat);
 	int  buildConstraintTable(ICBSNode* curr, int agent_id, int newConstraintTimestep,
 		std::vector < std::unordered_map<int, ConstraintState > >& cons_table, pair<int, int>& start, pair<int, int>& goal);
-	void addPathToConflictAvoidanceTable(vector<PathEntry> &path, ConflictAvoidanceTable &cat, int agent_id);
-	void removePathFromConflictAvoidanceTable(vector<PathEntry> &path, ConflictAvoidanceTable &cat, int agent_id);
-	int countMddSingletons(vector<vector<PathEntry> *> &paths, int agent_id, int conflict_timestep);
-	int getTotalMddWidth(vector<vector<PathEntry> *> &paths, int agent_id);
-	void addPositiveConstraintsOnNarrowLevelsLeadingToPositiveConstraint(vector<PathEntry> &parent_path,
+	void addPathToConflictAvoidanceTable(Path &path, ConflictAvoidanceTable &cat, int agent_id);
+	void removePathFromConflictAvoidanceTable(Path &path, ConflictAvoidanceTable &cat, int agent_id);
+	int countMddSingletons(vector<Path *> &paths, int agent_id, int conflict_timestep);
+	int getTotalMddWidth(vector<Path *> &paths, int agent_id);
+	void addPositiveConstraintsOnNarrowLevelsLeadingToPositiveConstraint(Path &parent_path,
                              int new_positive_constraint_timestep, ICBSNode* child, const ConflictAvoidanceTable* cat);
-    void removePositiveConstraintsOnNarrowLevelsLeadingToPositiveConstraint(vector<PathEntry> &parent_path,
+    void removePositiveConstraintsOnNarrowLevelsLeadingToPositiveConstraint(Path &parent_path,
                              int new_positive_constraint_timestep, ICBSNode* child, const ConflictAvoidanceTable* cat);
 
     void findShortestPathFromPrevNodeToCurr(ICBSNode *curr, ICBSNode* prev,
@@ -157,7 +157,7 @@ private:
 
 
 	// update
-	inline void populatePaths(ICBSNode *curr, vector<vector<PathEntry> *> &paths);
+	inline void populatePaths(ICBSNode *curr, vector<Path *> &paths);
 	void collectConstraints(ICBSNode* curr, std::list<pair<int, tuple<int, int, int, bool>>> &constraints);
 	bool reinsert(ICBSNode* curr);
 	void updateFocalList(double old_lower_bound, double new_lower_bound, double f_weight);
@@ -177,8 +177,8 @@ private:
 
 	// tools
 	bool buildMDD(ICBSNode &curr, int ag, int timestep, int lookahead = 0, ConflictAvoidanceTable *cat = nullptr);
-	bool arePathsConsistentWithConstraints(vector<vector<PathEntry> *> &paths, ICBSNode *curr) const;
-	inline int getAgentLocation(vector<vector<PathEntry> *> &paths, size_t timestep, int agent_id);
+	bool arePathsConsistentWithConstraints(vector<Path *> &paths, ICBSNode *curr) const;
+	inline int getAgentLocation(vector<Path *> &paths, size_t timestep, int agent_id);
 
 	std::tuple<bool, int> do_idcbsh_iteration(ICBSNode *curr,
 	                                          ConflictAvoidanceTable &cat,
@@ -187,12 +187,12 @@ private:
 	                                                   ConflictAvoidanceTable &cat, int max_cost);
 	void idcbsh_unconstrain(ICBSNode *node,
 	                        ConflictAvoidanceTable &cat,
-	                        vector<PathEntry> &path_backup,
+	                        Path &path_backup,
 	                        shared_ptr<Conflict> &conflict_backup, int makespan_backup, int g_val_backup,
 	                        int h_val_backup, ICBSNode::WillCostIncrease left_will_increase_backup,
                             ICBSNode::WillCostIncrease right_will_increase_backup,
 	                        bool just_unconstrain = false);
 
     void update_cat_and_lpas(ICBSNode *prev_node, ICBSNode *curr,
-                             vector<vector<PathEntry>*>& paths, ConflictAvoidanceTable *cat);
+                             vector<Path*>& paths, ConflictAvoidanceTable *cat);
 };

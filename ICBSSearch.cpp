@@ -589,7 +589,7 @@ void ICBSSearch::buildConflictAvoidanceTable(const ICBSNode &node, int exclude_a
 	}
 }
 
-void ICBSSearch::addPathToConflictAvoidanceTable(vector<PathEntry> &path, ConflictAvoidanceTable &cat, int agent_id) {
+void ICBSSearch::addPathToConflictAvoidanceTable(Path &path, ConflictAvoidanceTable &cat, int agent_id) {
     if (screen) {
         cout << "Adding the path (size " << path.size() - 1 << ") of agent " << agent_id << " to the CAT: ";
 
@@ -624,7 +624,7 @@ void ICBSSearch::addPathToConflictAvoidanceTable(vector<PathEntry> &path, Confli
     wall_cat_runtime += std::chrono::system_clock::now() - wall_cat_start;
 }
 
-void ICBSSearch::removePathFromConflictAvoidanceTable(vector<PathEntry> &path, ConflictAvoidanceTable &cat, int agent_id) {
+void ICBSSearch::removePathFromConflictAvoidanceTable(Path &path, ConflictAvoidanceTable &cat, int agent_id) {
     if (screen) {
         cout << "Removing the path (size " << path.size() - 1 << ") of agent " << agent_id << " from the CAT: ";
 
@@ -796,8 +796,8 @@ void ICBSSearch::findConflicts(ICBSNode& curr, vector<int>& agents_with_new_path
 // find conflicts between paths of agents a1 and a2
 void ICBSSearch::findConflicts(ICBSNode &curr, int a1, int a2)
 {
-	vector<PathEntry>& a1_path = *(*curr.all_paths)[a1];
-	vector<PathEntry>& a2_path = *(*curr.all_paths)[a2];
+	Path& a1_path = *(*curr.all_paths)[a1];
+	Path& a2_path = *(*curr.all_paths)[a2];
 	size_t min_path_length = a1_path.size() < a2_path.size() ? a1_path.size() : a2_path.size();
 	for (int timestep = 0; timestep < min_path_length; timestep++)
 	{
@@ -818,8 +818,8 @@ void ICBSSearch::findConflicts(ICBSNode &curr, int a1, int a2)
 	{
 		int agent_with_shorter_path = a1_path.size() < a2_path.size() ? a1 : a2;
 		int agent_with_longer_path = a1_path.size() < a2_path.size() ? a2 : a1;
-		vector<PathEntry>& shorter_path = *(*curr.all_paths)[agent_with_shorter_path];
-		vector<PathEntry>& longer_path = *(*curr.all_paths)[agent_with_longer_path];
+		Path& shorter_path = *(*curr.all_paths)[agent_with_shorter_path];
+		Path& longer_path = *(*curr.all_paths)[agent_with_longer_path];
 		int loc1 = shorter_path.back().location;
 		for (int timestep = (int)min_path_length; timestep < longer_path.size(); timestep++)
 		{
@@ -855,8 +855,8 @@ void ICBSSearch::classifyConflicts(ICBSNode &node, ConflictAvoidanceTable* cat /
 		std::shared_ptr<Conflict> con = node.unknownConf.back();
 		const auto& [agent1, agent2, loc1, loc2, timestep] = *con;
 
-		vector<PathEntry> & a1_path = *(*node.all_paths)[agent1];
-		vector<PathEntry> & a2_path = *(*node.all_paths)[agent2];
+		Path & a1_path = *(*node.all_paths)[agent1];
+		Path & a2_path = *(*node.all_paths)[agent2];
 
 		bool cardinal1, cardinal2;
 		bool goal_conflict1 = false;
@@ -1094,8 +1094,8 @@ std::shared_ptr<Conflict> ICBSSearch::getHighestPriorityConflict(ICBSNode &node,
 		{
 			const auto& [agent1, agent2, loc1, loc2, timestep] = *conf;
 
-			vector<PathEntry> & a1_path = *(*node.all_paths)[agent1];
-			vector<PathEntry> & a2_path = *(*node.all_paths)[agent2];
+			Path & a1_path = *(*node.all_paths)[agent1];
+			Path & a2_path = *(*node.all_paths)[agent2];
 
 			int metric1 = 0;
 			int maxSingles = 0;
@@ -1130,8 +1130,8 @@ std::shared_ptr<Conflict> ICBSSearch::getHighestPriorityConflict(ICBSNode &node,
         int choice_left_width, choice_right_width;
         int choice_left_singletons = 0, choice_right_singletons = 0;
         const auto& [choice_agent1, choice_agent2, choice_loc1, choice_loc2, choice_timestep] = *choice;
-        vector<PathEntry> & choice_a1_path = *(*node.all_paths)[choice_agent1];
-        vector<PathEntry> & choice_a2_path = *(*node.all_paths)[choice_agent2];
+        Path & choice_a1_path = *(*node.all_paths)[choice_agent1];
+        Path & choice_a2_path = *(*node.all_paths)[choice_agent2];
         if (choice_a1_path.size() <= choice_timestep)
             choice_left_width = 1;
         else
@@ -1154,8 +1154,8 @@ std::shared_ptr<Conflict> ICBSSearch::getHighestPriorityConflict(ICBSNode &node,
 			const auto& [agent1, agent2, loc1, loc2, timestep] = *conf;
             int left_width, right_width;
 
-			vector<PathEntry> & a1_path = *(*node.all_paths)[agent1];
-			vector<PathEntry> & a2_path = *(*node.all_paths)[agent2];
+			Path & a1_path = *(*node.all_paths)[agent1];
+			Path & a2_path = *(*node.all_paths)[agent2];
 
 			if (a1_path.size() <= timestep)
                 left_width = 1;
@@ -1212,8 +1212,8 @@ std::shared_ptr<Conflict> ICBSSearch::getHighestPriorityConflict(ICBSNode &node,
 		for (const auto& conf : confs)
 		{
 			const auto& [agent1, agent2, loc1, loc2, timestep] = *conf;
-			vector<PathEntry> * a1_path = (*node.all_paths)[agent1];
-			vector<PathEntry> * a2_path = (*node.all_paths)[agent2];
+			Path * a1_path = (*node.all_paths)[agent1];
+			Path * a2_path = (*node.all_paths)[agent2];
 			int steps_from_goal = std::abs(((int) a1_path->size()) - 1 - timestep) +
 			                      std::abs(((int) a2_path->size()) - 1 - timestep);
 			if (steps_from_goal < min_steps_from_goal) {
@@ -1231,7 +1231,7 @@ std::shared_ptr<Conflict> ICBSSearch::getHighestPriorityConflict(ICBSNode &node,
 // Returns whether building was successful
 bool ICBSSearch::buildMDD(ICBSNode &curr, int ag, int timestep, int lookahead /* = 0*/, ConflictAvoidanceTable *cat /* = nullptr*/)
 {
-	vector<PathEntry> & path = *(*curr.all_paths)[ag];
+	Path & path = *(*curr.all_paths)[ag];
 	if (path[timestep].builtMDD)
 		return true;
 
@@ -1376,7 +1376,7 @@ bool ICBSSearch::buildMDD(ICBSNode &curr, int ag, int timestep, int lookahead /*
     return true;
 }
 
-int ICBSSearch::countMddSingletons(vector<vector<PathEntry> *> &the_paths, int agent_id, int conflict_timestep)
+int ICBSSearch::countMddSingletons(vector<Path *> &the_paths, int agent_id, int conflict_timestep)
 {
 	int num_singletons = 0;
 	if (conflict_timestep < (int)the_paths[agent_id]->size())
@@ -1388,7 +1388,7 @@ int ICBSSearch::countMddSingletons(vector<vector<PathEntry> *> &the_paths, int a
 	return num_singletons;
 }
 
-int ICBSSearch::getTotalMddWidth(vector<vector<PathEntry> *> &the_paths, int agent_id)
+int ICBSSearch::getTotalMddWidth(vector<Path *> &the_paths, int agent_id)
 {
 	int width = 0;
 	for (int j = 0; j < the_paths[agent_id]->size(); j++)
@@ -1398,7 +1398,7 @@ int ICBSSearch::getTotalMddWidth(vector<vector<PathEntry> *> &the_paths, int age
 	return width;
 }
 
-void ICBSSearch::addPositiveConstraintsOnNarrowLevelsLeadingToPositiveConstraint(vector<PathEntry> &parent_path,
+void ICBSSearch::addPositiveConstraintsOnNarrowLevelsLeadingToPositiveConstraint(Path &parent_path,
     int new_positive_constraint_timestep, ICBSNode* child, const ConflictAvoidanceTable* catp)
 {
 	if (posConstraintsAlsoAddPosConstraintsOnMddNarrowLevelsLeadingToThem)
@@ -1429,7 +1429,7 @@ void ICBSSearch::addPositiveConstraintsOnNarrowLevelsLeadingToPositiveConstraint
 	}
 }
 
-void ICBSSearch::removePositiveConstraintsOnNarrowLevelsLeadingToPositiveConstraint(vector<PathEntry> &parent_path,
+void ICBSSearch::removePositiveConstraintsOnNarrowLevelsLeadingToPositiveConstraint(Path &parent_path,
      int new_positive_constraint_timestep, ICBSNode* child, const ConflictAvoidanceTable* catp)
 {
     if (posConstraintsAlsoAddPosConstraintsOnMddNarrowLevelsLeadingToThem)
@@ -1608,7 +1608,7 @@ bool ICBSSearch::disjoint_branch_and_generate_with_up_and_down(ICBSNode* parent,
 		location2 = temp;
 	}
 
-    vector<vector<PathEntry>*> temp(*parent->all_paths);
+    vector<Path*> temp(*parent->all_paths);
     child1->all_paths = parent->all_paths;  // Temporarily
 
 	LL_num_generated += child1->add_constraint(make_tuple(location1, location2, timestep, true), cat, true, posConstraintsAlsoAddPosConstraintsOnMddNarrowLevelsLeadingToThem);
@@ -1741,7 +1741,7 @@ bool ICBSSearch::branch_and_generate_with_up_and_down(ICBSNode* parent, ICBSNode
 
 		LL_num_generated += child1->add_constraint(make_tuple(location1, location2, timestep, false), cat, true, posConstraintsAlsoAddPosConstraintsOnMddNarrowLevelsLeadingToThem);
 
-		vector<vector<PathEntry>*> temp(*parent->all_paths);
+		vector<Path*> temp(*parent->all_paths);
 		child1->all_paths = parent->all_paths;
         auto [child1_or_nullptr, continue_to_next_child1] = generateChild(child1, cat); // plan paths for child1, storing them in its new_paths
 		if (screen == 1) {
@@ -1827,7 +1827,7 @@ bool ICBSSearch::branch_and_generate_with_up_and_down(ICBSNode* parent, ICBSNode
 std::tuple<ICBSNode *, bool> ICBSSearch::generateChild(ICBSNode *child, ConflictAvoidanceTable *cat)
 {
 	int h = 0;  // TODO: Consider computing the heuristic minus this agent
-	vector<vector<PathEntry> *>& parent_paths = *child->all_paths;  // The child temporarily points to the parent's paths
+	vector<Path *>& parent_paths = *child->all_paths;  // The child temporarily points to the parent's paths
 	for (const auto& con : child->negative_constraints[child->agent_id])  // TODO: When rectangle conflict resolution is added, more than one negative constraint
 	                                                                      //       might be added at once. Replan once after all negative constraints are accounted for!
 	{
@@ -2113,7 +2113,7 @@ bool ICBSSearch::findPathForSingleAgent(ICBSNode *node, ConflictAvoidanceTable *
 	}
 
 	// Prepare the place we'll put the path
-	vector<PathEntry>* pNewPath = nullptr;
+	Path* pNewPath = nullptr;
 	if (!skipNewpaths) {
 		// Linear lookup:
 		bool found = false;
@@ -2137,8 +2137,8 @@ bool ICBSSearch::findPathForSingleAgent(ICBSNode *node, ConflictAvoidanceTable *
 		}
 		pNewPath = &it->second;
 	} else
-		pNewPath = new vector<PathEntry>();
-	vector<PathEntry>& newPath = *pNewPath;
+		pNewPath = new Path();
+	Path& newPath = *pNewPath;
 
 	// A path w.r.t cons_table (and prioritize by the conflict-avoidance table).
 	bool foundSol;
@@ -2337,7 +2337,7 @@ bool ICBSSearch::finishPartialExpansion(ICBSNode *node, ConflictAvoidanceTable *
 
 //////////////////// TOOLS ///////////////////////////
 // check whether the new planned path obeys the constraints -- for debug
-bool ICBSSearch::arePathsConsistentWithConstraints(vector<vector<PathEntry> *> &paths, ICBSNode *curr) const
+bool ICBSSearch::arePathsConsistentWithConstraints(vector<Path *> &paths, ICBSNode *curr) const
 {
 	if (curr->partialExpansion)
 		return true;
@@ -2460,9 +2460,9 @@ void ICBSSearch::isSolutionFeasible()
 		cerr << "Solution cost " << solution_cost << " > min f val " << min_f_val << " * focal_w " << focal_w << "!" << endl;
 		good = false;
 	}
-//	vector<vector<PathEntry>*> paths(num_of_agents, nullptr);
+//	vector<Path*> paths(num_of_agents, nullptr);
 //	populatePaths(solution_node, paths);
-//	vector<vector<PathEntry>*>& paths = *solution_node->all_paths;
+//	vector<Path*>& paths = *solution_node->all_paths;
 	int sum = 0;
 	for (int i = 0; i < num_of_agents; i++)
 	{
@@ -2543,7 +2543,7 @@ void ICBSSearch::isSolutionFeasible()
 
 // Returns the ID of the location the given agent is in at the given timestep according to the given paths
 // of the current node we're working on
-inline int ICBSSearch::getAgentLocation(vector<vector<PathEntry> *> &paths, size_t timestep, int agent_id)
+inline int ICBSSearch::getAgentLocation(vector<Path *> &paths, size_t timestep, int agent_id)
 {
 	// if last timestep > plan length, agent remains in its last location
 	if (timestep >= paths[agent_id]->size())
@@ -2555,7 +2555,7 @@ inline int ICBSSearch::getAgentLocation(vector<vector<PathEntry> *> &paths, size
 // Populates the search's paths member by scanning from the given node towards the root node and
 // taking the first constrained path encountered for each agent. Agents with no
 // constrained path take the original path they got in the root node.
-inline void ICBSSearch::populatePaths(ICBSNode *curr, vector<vector<PathEntry> *> &the_paths)
+inline void ICBSSearch::populatePaths(ICBSNode *curr, vector<Path *> &the_paths)
 {
 	vector<bool> path_already_found(num_of_agents, false);  // initialized with false for all agents
 	while (curr != nullptr)
@@ -2619,7 +2619,7 @@ bool ICBSSearch::reinsert(ICBSNode* curr)
 
 
 //////////////////// PRINT ///////////////////////////
-void ICBSSearch::printPaths(vector<vector<PathEntry> *> &the_paths, int max_len) const
+void ICBSSearch::printPaths(vector<Path *> &the_paths, int max_len) const
 {
 	for (int i = 0; i < num_of_agents; i++)
 	{
@@ -3097,7 +3097,7 @@ bool ICBSSearch::runICBSSearch()
 //				LL_num_generated += n2->add_constraint(make_tuple(location2, location1, timestep, true));
 //				LL_num_generated += n3->add_constraint(make_tuple(location1, location2, timestep, false));
 //			}
-//			vector<vector<PathEntry>*> copy(paths);
+//			vector<Path*> copy(paths);
 //			bool Sol1 = generateChild(n1);
 //			paths = copy;
 //			bool Sol2 = generateChild(n2);
@@ -3112,7 +3112,7 @@ bool ICBSSearch::runICBSSearch()
 #ifndef CBS_UP_AND_DOWN
 			branch(curr, n1, n2); // add constraints to child nodes
 
-			vector<vector<PathEntry>*> temp(paths);
+			vector<Path*> temp(paths);
 			n1->all_paths = &paths;
 			auto [child1, continue_to_next_child1] = generateChild(n1); // plan paths for n1
 			if (screen == 1) {
@@ -3210,7 +3210,7 @@ bool ICBSSearch::runICBSSearch()
 }
 
 void ICBSSearch::update_cat_and_lpas(ICBSNode *prev_node, ICBSNode *curr,
-									 vector<vector<PathEntry>*>& paths, ConflictAvoidanceTable *cat) {
+									 vector<Path*>& paths, ConflictAvoidanceTable *cat) {
 #ifdef CBS_UP_AND_DOWN
     if (prev_node != nullptr) {
 		auto up_and_down_start = std::clock();
@@ -3253,7 +3253,7 @@ void ICBSSearch::update_cat_and_lpas(ICBSNode *prev_node, ICBSNode *curr,
 			}
 		}
 		ICBSNode *lowestCommonAncestor = steps_down_from_lowest_common_ancestor_to_curr_node.front()->parent;
-		vector<vector<PathEntry> *> lca_paths(num_of_agents,
+		vector<Path *> lca_paths(num_of_agents,
 											  nullptr);  // The paths of the node we're currently working on.
 		populatePaths(lowestCommonAncestor, lca_paths);
 		for (auto node : steps_down_from_lowest_common_ancestor_to_curr_node) {
@@ -3442,7 +3442,7 @@ std::tuple<bool, int> ICBSSearch::do_idcbsh_iteration(ICBSNode *curr,
 		return make_tuple(false, next_threshold);
 	}
 
-	vector<vector<PathEntry> *> &paths = *curr->all_paths;
+	vector<Path *> &paths = *curr->all_paths;
 
 	if (HL_heuristic == highlevel_heuristic::NONE) // Then conflicts are not yet classified
 	{
@@ -3703,7 +3703,7 @@ tuple<bool, bool> ICBSSearch::idcbsh_add_constraint_and_replan(ICBSNode *node,
 															   ConflictAvoidanceTable &cat,
 															   int allowed_cost_increase)
 {
-	vector<vector<PathEntry> *> &paths = *node->all_paths;
+	vector<Path *> &paths = *node->all_paths;
 	const auto& [agent1_id, agent2_id, location1, location2, timestep] = *node->conflict;
 	int oldG = node->g_val;
 	ICBSNode::WillCostIncrease costMayIncrease = node->agent_id == agent1_id ? node->left_will_increase : node->right_will_increase;
@@ -3761,13 +3761,13 @@ tuple<bool, bool> ICBSSearch::idcbsh_add_constraint_and_replan(ICBSNode *node,
 }
 
 void ICBSSearch::idcbsh_unconstrain(ICBSNode *node, ConflictAvoidanceTable &cat,
-									vector<PathEntry> &path_backup, shared_ptr<Conflict> &conflict_backup,
+									Path &path_backup, shared_ptr<Conflict> &conflict_backup,
 									int makespan_backup, int g_val_backup, int h_val_backup,
                                     ICBSNode::WillCostIncrease left_will_increase_backup,
                                     ICBSNode::WillCostIncrease right_will_increase_backup,
 									bool just_unconstrain)
 {
-	vector<vector<PathEntry> *> &paths = *node->all_paths;
+	vector<Path *> &paths = *node->all_paths;
 	// Remove the last constraint on the agent
 	int agent_id = node->agent_id;
 	ConflictAvoidanceTable* catp = nullptr;
@@ -3964,7 +3964,7 @@ ICBSSearch::ICBSSearch(const MapLoader &ml, const AgentsLoader &al, double focal
 	root_node = new ICBSNode(lpas);
 #endif
 	paths_found_initially.resize(num_of_agents);
-	vector<vector<PathEntry>*> paths(num_of_agents, nullptr);
+	vector<Path*> paths(num_of_agents, nullptr);
 	populatePaths(root_node, paths);
 	root_node->all_paths = &paths;
 

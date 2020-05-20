@@ -61,7 +61,7 @@ public:
 	vector<list<Constraint>> negative_constraints;
 	list<pair<int, vector<PathEntry>>> new_paths; // (agent id + its new path)
 
-    vector<vector<PathEntry> *>* all_paths;  // Only populated while node is being expanded
+    vector<Path *>* all_paths;  // Only populated while node is being expanded
 
 	int g_val;
 	int h_val;

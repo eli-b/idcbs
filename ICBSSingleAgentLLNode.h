@@ -13,6 +13,7 @@ struct PathEntry
 	bool builtMDD; // only when builtMDD is true, single is useful.
 	PathEntry() {location = -1; builtMDD = false; single = false; numMDDNodes = 0;}
 };
+typedef vector<PathEntry> Path;
 
 class ICBSSingleAgentLLNode
 {
