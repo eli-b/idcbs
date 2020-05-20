@@ -7,7 +7,7 @@
 
 #define LPA
 #define LATEST_CONFLICT_WITHIN_CLASS
-#define CBS_UP_AND_DOWN
+//#define CBS_LCA_JUMPING
 
 
 class ICBSSearch;

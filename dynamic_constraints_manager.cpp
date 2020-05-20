@@ -97,6 +97,8 @@ bool DynamicConstraintsManager::isDynCons(int curr_id, int next_id, int next_ts)
 		}
 	}
 
+	// TODO: Check if there's a positive constraint on a different location to curr_id in next_ts-1 or to next_id in next_ts
+
 	VLOG(11) << "\t\t\t\tNOT DYN_CONS!";
 	return false;
 }

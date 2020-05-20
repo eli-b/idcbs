@@ -813,6 +813,7 @@ void ICBSSearch::findConflicts(ICBSNode &curr, int a1, int a2)
 // Classify conflicts into the different cardinality classes and populate the node's conflict lists with them.
 // If a CBS heuristic isn't used, return the first (f-)cardinal conflict that was found immediately, without finishing
 // the classification of conflicts.
+// The CAT is only used if LPA* is used to build the MDDs for checking if conflicts are cardinal
 void ICBSSearch::classifyConflicts(ICBSNode &node, ConflictAvoidanceTable* cat /* = nullptr*/)
 {
 	if (node.cardinalGoalConf.empty() &&
@@ -845,6 +846,9 @@ void ICBSSearch::classifyConflicts(ICBSNode &node, ConflictAvoidanceTable* cat /
 			success = buildMDD(node, agent2, timestep, 0, cat);
             if (!success)
                 break;
+            // TODO: If we can already tell the conflict is at most semi-g-cardinal and won't factor into the heuristic,
+            //       Skip building the other MDD and push the conflict into a semi-g-cardinal-or-non-cardinal vector.
+            //       We might never need the other agent's MDD.
 			success = buildMDD(node, agent1, timestep - 1, 0, cat);  // Build an MDD for the agent's current cost, unless we already know if it's narrow at <timestep - 1>
             if (!success)
                 break;
@@ -866,6 +870,8 @@ void ICBSSearch::classifyConflicts(ICBSNode &node, ConflictAvoidanceTable* cat /
                 if (!success)
                     break;
 				cardinal1 = a1_path[timestep].single;
+                // TODO: If we can already tell the conflict is at most semi-g-cardinal and won't factor into the heuristic,
+                //       Skip building the other MDD and push the conflict into a semi-g-cardinal-or-non-cardinal vector.
 			}
 			if (timestep >= a2_path.size()) {
 				goal_conflict2 = true;
@@ -1109,15 +1115,12 @@ std::shared_ptr<Conflict> ICBSSearch::getHighestPriorityConflict(ICBSNode &node,
 	{
 		vector<int> metric(num_of_agents, 0);
 		vector<double> averageMDDWidth(num_of_agents, 0);
-		if (split == split_strategy::SINGLETONS)
+		for (int i = 0; i < num_of_agents; i++)
 		{
-			for (int i = 0; i < num_of_agents; i++)
-			{
-				vector<PathEntry> & path_i = *(*node.all_paths)[i];
-				for (int j = 0; j < path_i.size(); j++)
-					averageMDDWidth[i] += path_i[j].numMDDNodes;
-				averageMDDWidth[i] /= path_i.size();
-			}
+			Path & path_i = *(*node.all_paths)[i];
+			for (int j = 0; j < path_i.size(); j++)
+				averageMDDWidth[i] += path_i[j].numMDDNodes;
+			averageMDDWidth[i] /= path_i.size();
 		}
 
 		for (const auto& conf : confs)
@@ -1153,7 +1156,7 @@ std::shared_ptr<Conflict> ICBSSearch::getHighestPriorityConflict(ICBSNode &node,
 		}
 	}
 	else if (split == split_strategy::WIDTH ||  // Choose lowest multiplication of MDD widths at conflict timestep,
-                                                // then the conflict with which has the agent with the most MDD singletons
+                                                // then the conflict which has the agent with the most MDD singletons
                                                 // leading up to the conflict timestep
             split == split_strategy::MVC_BASED)  // In this case the choice may be changed (currently for cardinal conflicts only) in computeHeuristic
 	{
@@ -1259,6 +1262,7 @@ std::shared_ptr<Conflict> ICBSSearch::getHighestPriorityConflict(ICBSNode &node,
 // build MDDs if needed
 // For every step of the path of the given agent, save whether the MDD at that step has a single node
 // Returns whether building was successful
+// The cat is only used if LPA* is used to build the MDD
 bool ICBSSearch::buildMDD(ICBSNode &curr, int ag, int timestep, int lookahead /* = 0*/, ConflictAvoidanceTable *cat /* = nullptr*/)
 {
 	Path & path = *(*curr.all_paths)[ag];
@@ -1271,11 +1275,12 @@ bool ICBSSearch::buildMDD(ICBSNode &curr, int ag, int timestep, int lookahead /*
 	// Find the last node on this branch that computed a new path for this agent
 	ICBSNode* node = &curr; // Back to where we get the path
 	bool found = false;
-	while (node->parent != NULL)
+	while (node->parent != nullptr)
 	{
-		for (const auto& newPath : node->new_paths)
+		for (const auto& agent_id_and_new_path : node->new_paths)
 		{
-			if (newPath.first == ag)
+		    const auto& [agent_id, new_path] = agent_id_and_new_path;
+			if (agent_id == ag)
 			{
 				found = true;
 				break;
@@ -1581,7 +1586,8 @@ void ICBSSearch::branch(ICBSNode* parent, ICBSNode* child1, ICBSNode* child2)
 
 		disjoint_branch_on_agent(parent, child1, child2, id);
 	}
-	else if (split == split_strategy::MVC_BASED) {
+	else if (split == split_strategy::MVC_BASED) {  // A disjoint split that chooses the agent that's more likely
+	                                                // to increase the f-value of both child nodes
 		disjoint_branch_on_agent(parent, child1, child2, parent->branch_on_first_agent ? agent1_id : agent2_id);
 	}
 	else  // Do a non-disjoint split
@@ -1853,7 +1859,9 @@ bool ICBSSearch::branch_and_generate_with_up_and_down(ICBSNode* parent, ICBSNode
 	}
 }
 
-// Plan paths for a node. Returns a child node (or nullptr if a path couldn't be found or if a bypass was found), and whether to go on to the next child (false if a bypass was found).
+// Plan paths for a node.
+// Returns a child node (or nullptr if a path couldn't be found or if a bypass was found), and whether to go on to the
+// next child (false if a bypass was found).
 std::tuple<ICBSNode *, bool> ICBSSearch::generateChild(ICBSNode *child, ConflictAvoidanceTable *cat)
 {
 	int h = 0;  // TODO: Consider computing the heuristic minus this agent
@@ -1889,8 +1897,8 @@ std::tuple<ICBSNode *, bool> ICBSSearch::generateChild(ICBSNode *child, Conflict
 				child->partialExpansion = true;
 				if (screen == 1)
 					std::cout << "Partial expansion! Conflict timestep " <<  timestep <<
-					             " > " << parent_paths[a[i]]->size() - 1 << " timestep agent " << a[i] << " currently reaches its goal" <<
-					             ". Not planning a path yet - we know the cost will increase! " <<
+					             " > " << parent_paths[a[i]]->size() - 1 << " timestep agent " << a[i] << " currently "
+                                 "reaches its goal. Not planning a path yet - we know the cost will increase! "
                                  "Pushing back with h increased by " << h_increase << std::endl;
 				continue;
 			}
@@ -1992,8 +2000,9 @@ std::tuple<ICBSNode *, bool> ICBSSearch::generateChild(ICBSNode *child, Conflict
 	if (!child->partialExpansion) {
 		// Check for partial expansion carried over from the parent or something
 		// TODO: Can happen?
-		for (const auto& path : child->new_paths) {
-			if (path.second.size() == 1 && path.second.back().location < 0) {
+		for (const auto& pair : child->new_paths) {
+		    const auto& [agent_id, path] = pair;
+			if (path.size() == 1 && path.back().location < 0) {
 				child->partialExpansion = true;
 				break;
 			}
@@ -2343,7 +2352,7 @@ bool ICBSSearch::finishPartialExpansion(ICBSNode *node, ConflictAvoidanceTable *
 		int agent_id = agent_id_and_path.first;
 		if (agent_id_and_path.second.size() == 1 && agent_id_and_path.second.back().location < 0)
 		{
-#ifdef CBS_UP_AND_DOWN
+#ifdef CBS_LCA_JUMPING
 			// Remove the paren't path for the agent we delayed finding a path for
 			removePathFromConflictAvoidanceTable(*(*node->all_paths)[agent_id], *cat, agent_id);
 #endif
@@ -2354,7 +2363,7 @@ bool ICBSSearch::finishPartialExpansion(ICBSNode *node, ConflictAvoidanceTable *
 	                                                               // single goal so the goal can't be reached at the
 	                                                               // same timestep
 	        bool success = findPathForSingleAgent(node, cat, newConstraintTimestep, earliestGoalTimestep, agent_id, false);
-#ifdef CBS_UP_AND_DOWN
+#ifdef CBS_LCA_JUMPING
             // Add the agent's newly found path
             addPathToConflictAvoidanceTable(*(*node->all_paths)[agent_id], *cat, agent_id);
 #endif
@@ -2657,7 +2666,7 @@ bool ICBSSearch::reinsert(ICBSNode* curr)
 		curr->open_handle = open_list.push(curr);
 		curr->in_open = true;
 		ICBSNode* open_head = open_list.top();
-		if (open_head->f_val > min_f_val)
+		if (open_head->f_val > min_f_val)  // TODO: Explain
 		{
 			min_f_val = open_head->f_val;
 			double focal_list_threshold_candidate = min_f_val * focal_w;
@@ -2918,13 +2927,13 @@ bool ICBSSearch::runICBSSearch()
 {
 	if (HL_heuristic != highlevel_heuristic::NONE)
 #ifndef LPA
-		std::cout << "CBSH: " << std::endl;
+		std::cout << "CBSH(" << focal_w << "): " << std::endl;
 #else
 		std::cout << "CBSH/LPA*: " << std::endl;
 #endif
 	else
 #ifndef LPA
-		std::cout << "ICBS: " << std::endl;
+		std::cout << "ICBS(" << focal_w << "): " << std::endl;
 #else
 		std::cout << "ICBS/LPA*: " << std::endl;
 #endif
@@ -2936,7 +2945,7 @@ bool ICBSSearch::runICBSSearch()
 		this->printPaths(paths);
 
 	ConflictAvoidanceTable* cat = nullptr;
-#ifdef CBS_UP_AND_DOWN
+#ifdef CBS_LCA_JUMPING
 	// Add the path of the last agent to the running CAT
 	addPathToConflictAvoidanceTable(*(*root_node->all_paths)[num_of_agents-1], root_cat, num_of_agents-1);
 	cat = &root_cat;
@@ -2969,7 +2978,7 @@ bool ICBSSearch::runICBSSearch()
 		if (!continue_working_on_last_node) {
             currently_reexpanding_last_node = false;
             // pop the best node from FOCAL
-#ifndef CBS_UP_AND_DOWN
+#ifndef CBS_LCA_JUMPING
             curr = focal_list.top();
             focal_list.pop();
             curr->in_focal = false;
@@ -3059,8 +3068,9 @@ bool ICBSSearch::runICBSSearch()
             // have had remnants of the parent's H even though its H has not yet
             // been computed at the time.
             if (prev_f > curr->f_val) {
-                cerr << "F value of #" << curr->time_generated << "= " << curr->f_val <<
-                        " < F value of prev node #" << prev_node->time_generated << "= " << prev_f << endl;
+                // TODO: Copy this check to IDCBS
+                cerr << "F value of #" << curr->time_generated << "=" << curr->f_val <<
+                        " < F value of prev node #" << prev_node->time_generated << "=" << prev_f << endl;
                 abort();
             }
         }
@@ -3108,7 +3118,7 @@ bool ICBSSearch::runICBSSearch()
 			if (screen == 1)
 				printConflicts(*curr);
 		}
-		else if (curr->conflict == nullptr) //CBSH, and h value has not been computed yet
+		else if (curr->conflict == nullptr) // CBSH, and h value has not been computed yet
 		{
             classifyConflicts(*curr, cat);  // classify conflicts
             curr->conflict = getHighestPriorityConflict(*curr);  // choose one to work on
@@ -3195,7 +3205,6 @@ bool ICBSSearch::runICBSSearch()
 		}
 
 		prev_f = curr->f_val;  // Refresh it after computing the heuristic and not re-inserting
-//        cerr << "prev F set to #" << curr->time_generated << "= " << prev_f << endl;
 
 		if (curr->conflict == nullptr) // Failed to find a conflict => no conflicts
 		{  // found a solution (and finish the while loop)
@@ -3252,7 +3261,7 @@ bool ICBSSearch::runICBSSearch()
 			ICBSNode* n1 = new ICBSNode(curr, true);
 			ICBSNode* n2 = new ICBSNode(curr, false);
 
-#ifndef CBS_UP_AND_DOWN
+#ifndef CBS_LCA_JUMPING
 			branch(curr, n1, n2); // add constraints to child nodes
 
 			vector<Path*> temp(paths);
@@ -3348,13 +3357,13 @@ bool ICBSSearch::runICBSSearch()
 	wall_runtime = std::chrono::system_clock::now() - wall_start;
 	highLevelTime = runtime - lowLevelTime - hl_node_verification_runtime - hlHeuristicTime - up_and_down_runtime - cat_runtime - highLevelMddBuildingTime;
 	wall_highLevelTime = wall_runtime - wall_lowLevelTime - wall_hl_node_verification_runtime - wall_hlHeuristicTime - wall_up_and_down_runtime - wall_cat_runtime - wall_mddTime;
-	printPaths(paths);
+	//printPaths(paths);  // TODO: enable suppressing
 	return solution_found;
 }
 
 void ICBSSearch::update_cat_and_lpas(ICBSNode *prev_node, ICBSNode *curr,
 									 vector<Path*>& paths, ConflictAvoidanceTable *cat) {
-#ifdef CBS_UP_AND_DOWN
+#ifdef CBS_LCA_JUMPING
     if (prev_node != nullptr) {
 		auto up_and_down_start = std::clock();
 		auto wall_up_and_down_start = std::chrono::system_clock::now();
@@ -3468,13 +3477,13 @@ bool ICBSSearch::runIterativeDeepeningICBSSearch()
 {
 	if (HL_heuristic != highlevel_heuristic::NONE)
 #ifndef LPA
-		std::cout << "ID-CBSH: " << std::endl;
+		std::cout << "ID-CBSH(" << focal_w << "): " << std::endl;
 #else
 		std::cout << "ID-CBSH/LPA*: " << std::endl;
 #endif
 	else
 #ifndef LPA
-		std::cout << "ID-ICBS: " << std::endl;
+		std::cout << "ID-ICBS(" << focal_w << "): " << std::endl;
 #else
 		std::cout << "ID-ICBS/LPA*: " << std::endl;
 #endif
@@ -3594,7 +3603,7 @@ std::tuple<bool, int> ICBSSearch::do_idcbsh_iteration(ICBSNode *curr,
 
 		if (screen == 1)
 			printConflicts(*curr);
-	} else if (curr->conflict == nullptr) //CBSH, and h value has not been computed yet
+	} else if (curr->conflict == nullptr) // CBSH, and h value has not been computed yet
 	{
 		classifyConflicts(*curr, &cat);  // classify conflicts
 		curr->conflict = getHighestPriorityConflict(*curr);  // choose one to work on
