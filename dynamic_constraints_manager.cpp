@@ -1,14 +1,17 @@
 #include "dynamic_constraints_manager.h"
-#include "g_logging.h"
+#include <spdlog/spdlog.h>
 
+static spdlog::logger* logger;
 
 DynamicConstraintsManager::DynamicConstraintsManager() {
+    logger = spdlog::get("DCM").get();
 	dyn_constraints_.resize(0);
 	ml_ = nullptr;
 }
 
 
 DynamicConstraintsManager::DynamicConstraintsManager(const DynamicConstraintsManager& other) {
+    logger = spdlog::get("DCM").get();
 	dyn_constraints_ = other.dyn_constraints_;
 	ml_ = other.ml_;
 }
@@ -25,7 +28,8 @@ void DynamicConstraintsManager::addVertexConstraint(int loc_id, int ts) {
 		2) We cannot move from it to any of the neighbors (and get there at time ts+1).
 		3) We cannot move from it to it (and get there at time ts+1 or ts)
 	*/
-	VLOG_IF(1, ml_==nullptr) << "ERROR: Assumes ml_ was set.";
+	if (ml_==nullptr)
+	    spdlog::critical("ml_ is assumed to be set");
 	for (int direction = 0; direction < 5; direction++) {
 		auto succ_loc_id = loc_id + ml_->moves_offset[direction];
 		if (0 <= succ_loc_id && succ_loc_id < ml_->map_size() && !ml_->is_blocked(succ_loc_id)) {
@@ -42,7 +46,8 @@ void DynamicConstraintsManager::popVertexConstraint(int loc_id, int ts) {
         2) We cannot move from it to any of the neighbors (and get there at time ts+1).
         3) We cannot move from it to it (and get there at time ts+1 or ts)
     */
-    VLOG_IF(1, ml_==nullptr) << "ERROR: Assumes ml_ was set.";
+    if (ml_==nullptr)
+        spdlog::critical("ml_ is assumed to be set");
     for (int direction = 0; direction < 5; direction++) {
         auto succ_loc_id = loc_id + ml_->moves_offset[direction];
         if (0 <= succ_loc_id && succ_loc_id < ml_->map_size() && !ml_->is_blocked(succ_loc_id)) {
@@ -78,20 +83,22 @@ void DynamicConstraintsManager::addDynConstraint(int from_id, int to_id, int ts)
 void DynamicConstraintsManager::popDynConstraint(int from_id, int to_id, int ts) {
     // Remove it from the list of dynamic constraints.
     const auto [back_from_id, back_to_id] = dyn_constraints_[ts].back();  // Not auto& because the constraint is about to be removed
-    VLOG_IF(1, back_from_id != from_id) << "ERROR: We assume constraints are popped in the same order as they're added, but in reverse";
+    if (back_from_id != from_id)
+        logger->error("We assume constraints are popped in the same order as they're added, but in reverse");
     assert(back_from_id == from_id);
-    VLOG_IF(1, back_to_id != to_id) << "ERROR: We assume constraints are popped in the same order as they're added, but in reverse";
+    if (back_to_id != to_id)
+        logger->error("We assume constraints are popped in the same order as they're added, but in reverse");
     assert(back_to_id == to_id);
     dyn_constraints_[ts].pop_back();
 }
 
 bool DynamicConstraintsManager::isDynCons(int curr_id, int next_id, int next_ts) {
-	VLOG(11) << "\t\t\tisDynConstrained: <from=" << curr_id << ", to=" << next_id << ", t=" << next_ts << ">";
+	logger->debug("\t\t\tisDynConstrained: <from={}, to={}, t={}>", curr_id, next_id, next_ts);
 	// Check edge constraints (move from curr_id to next_id (getting to next_id at next_ts) is disallowed).
 	if ( next_ts > 0 && next_ts < static_cast<int>(dyn_constraints_.size()) ) {
 		for (const auto& c : dyn_constraints_[next_ts]) {
 			if ( c.first == curr_id && c.second == next_id ) {
-				VLOG(11) << "\t\t\t\tYES DYN_CONS!";
+				logger->debug("\t\t\t\tYES DYN_CONS!");
 				return true;
 			}
 		}
@@ -99,6 +106,6 @@ bool DynamicConstraintsManager::isDynCons(int curr_id, int next_id, int next_ts)
 
 	// TODO: Check if there's a positive constraint on a different location to curr_id in next_ts-1 or to next_id in next_ts
 
-	VLOG(11) << "\t\t\t\tNOT DYN_CONS!";
+	logger->debug("\t\t\t\tNOT DYN_CONS!");
 	return false;
 }

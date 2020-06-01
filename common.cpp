@@ -2,6 +2,8 @@
 
 int GRID_COLS = 8;
 
+namespace std
+{
 std::ostream& operator<<(std::ostream& os, const Constraint& constraint)
 {
     const auto& [loc1, loc2, timestep, positive_constraint] = constraint;
@@ -15,7 +17,10 @@ std::ostream& operator<<(std::ostream& os, const Constraint& constraint)
 		os << ", negative>";
 	return os;
 }
+}
 
+namespace std
+{
 std::ostream& operator<<(std::ostream& os, const Conflict& conflict)
 {
     const auto& [agent1, agent2, loc1, loc2, timestep] = conflict;
@@ -25,4 +30,5 @@ std::ostream& operator<<(std::ostream& os, const Conflict& conflict)
         os << "<" << agent1 << ", " << agent2 << ", (" << loc1 / GRID_COLS << "," << loc1 % GRID_COLS << "), ("
            << loc2 / GRID_COLS << "," << loc2 % GRID_COLS << "), " << timestep << ">";
 	return os;
+}
 }

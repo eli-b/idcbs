@@ -17,6 +17,7 @@
 #include <map>
 #include <cstring>
 #include <algorithm>
+#include "spdlog/fmt/ostr.h" // For defining operator<< on Conflict and Constraint objects in spdlog
 
 // FIXME: Too many includes above
 // FIXME: This file should be renamed to ICBSCommon.h
@@ -38,7 +39,10 @@ using namespace std;
 // <int loc1, int loc2, int timestep, bool positive_constraint>
 // NOTE loc2 = -1 for vertex constraints; loc2 = location2 for edge constraints
 typedef std::tuple<int, int, int, bool> Constraint;
+namespace std  // Forces the templating stage to consider our typedef above (see https://github.com/gabime/spdlog/issues/1227#issuecomment-532009129)
+{
 std::ostream& operator<<(std::ostream& os, const Constraint& constraint);
+}
 
 // <int loc1, int loc2, bool positive_constraint>
 typedef std::tuple<int, int, bool> ConstraintForKnownTimestep;
@@ -46,8 +50,10 @@ typedef std::tuple<int, int, bool> ConstraintForKnownTimestep;
 // <int agent1, int agent2, int loc1, int loc2, int timestep>
 // NOTE loc2 = -1 for vertex conflicts; loc2 = location2 for edge conflicts
 typedef std::tuple<int, int, int, int, int> Conflict;
+namespace std  // Forces the templating stage to consider our typedef above (see https://github.com/gabime/spdlog/issues/1227#issuecomment-532009129)
+{
 std::ostream& operator<<(std::ostream& os, const Conflict& conflict);
-
+}
 
 struct ConstraintState
 {

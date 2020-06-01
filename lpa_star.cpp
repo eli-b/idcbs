@@ -4,8 +4,8 @@
 #include <set>
 #include <utility>
 #include <sparsehash/dense_hash_map>
+#include <spdlog/spdlog.h>
 #include "lpa_node.h"
-#include "g_logging.h"
 #include "conflict_avoidance_table.h"
 
 using google::dense_hash_map;
@@ -18,10 +18,15 @@ using std::get;
 using std::string;
 using std::memcpy;
 
+static spdlog::logger* logger;
+
+
 // ----------------------------------------------------------------------------
 LPAStar::LPAStar(int start_location, int goal_location, const float* my_heuristic, const MapLoader* ml, int agent_id) :
     my_heuristic(my_heuristic), my_map(ml->my_map), actions_offset(ml->moves_offset), agent_id(agent_id),
     allNodes_table(ml->map_size()) {
+  logger = spdlog::get("LPA*").get();
+
   this->start_location = start_location;
   this->goal_location = goal_location;
   this->min_goal_timestep = 0;
@@ -64,7 +69,8 @@ LPAStar::LPAStar(int start_location, int goal_location, const float* my_heuristi
   if (start_n->loc_id_ == goal_location &&
       start_n->t_ >= this->min_goal_timestep
   ) {
-    VLOG(7) << "\t\tupdateState: Goal node update -- from " << goal_n->nodeString() << " to " << start_n->nodeString();
+    if (logger->level() <= spdlog::level::info)
+        logger->info("\t\tupdateState: Goal node update -- from {} to {}", goal_n->nodeString(), start_n->nodeString());
     goal_n = start_n;
     possible_goals.push_front(goal_n);  // It's the start position - there can't be an earlier goal
   }
@@ -82,7 +88,8 @@ bool LPAStar::updatePath(LPANode* goal) {
   while (curr != start_n) {
     if (curr == nullptr)
       return false;
-    VLOG(11) << curr->nodeString();
+    if (logger->level() <= spdlog::level::info)
+      logger->info(curr->nodeString());
     path.push_back(curr->loc_id_);
     //paths[search_iterations].push_back(curr->loc_id_);
     curr = curr->bp_;
@@ -101,7 +108,8 @@ bool LPAStar::updatePath(LPANode* goal) {
 
 // ----------------------------------------------------------------------------
 void LPAStar::addVertexConstraint(int loc_id, int ts, const ConflictAvoidanceTable& cat) {
-    VLOG_IF(1, ts == 0) << "We assume vertex constraints cannot happen at timestep 0.";
+    if (ts == 0)
+        logger->error("We assume vertex constraints cannot happen at timestep 0.");
     // 1) Invalidate this node (that is, sets bp_=nullptr, g=INF, v=INF) and remove from OPEN.
     LPANode* n = retrieveNode(loc_id, ts).second;
     // "Invalidates" n (that is, sets bp_=nullptr, g=INF, v=INF) and remove from OPEN.
@@ -158,7 +166,8 @@ void LPAStar::addVertexConstraint(int loc_id, int ts, const ConflictAvoidanceTab
 
 void LPAStar::popVertexConstraint(int loc_id, int ts, const ConflictAvoidanceTable& cat)
 {
-    VLOG_IF(1, ts == 0) << "We assume vertex constraints cannot happen at timestep 0.";
+    if (ts == 0)
+        logger->error("We assume vertex constraints cannot happen at timestep 0.");
     for (int direction = 4; direction >= 0; direction--) {
         auto succ_loc_id = loc_id + actions_offset[direction];
         if (0 <= succ_loc_id && succ_loc_id < map_rows*map_cols &&  // valid row
@@ -277,7 +286,8 @@ inline std::pair<bool, LPANode*> LPAStar::retrieveNode(int loc_id, int t, bool c
   // try to retrieve it from the table
   auto [exists, node] = allNodes_table.get(loc_id, t);
   if (exists) {
-      VLOG(11) << "\t\t\t\t\tallNodes_table: Returned existing" << node->nodeString();
+      if (logger->level() <= spdlog::level::debug)
+        logger->debug("\t\t\t\t\tallNodes_table: Returned existing {}", node->nodeString());
       return make_pair(true, node);
   }
   else {  // case (2) above
@@ -294,7 +304,8 @@ inline std::pair<bool, LPANode*> LPAStar::retrieveNode(int loc_id, int t, bool c
     //num_generated[search_iterations]++; -- counted instead when adding to OPEN (so we account for reopening).
     //temp_n->initState();  -- already done correctly in construction above.
     allNodes_table.set(loc_id, t, n);
-    VLOG(11) << "\t\t\t\t\tallNodes_table: Added new node" << n->nodeString();
+    if (logger->level() <= spdlog::level::debug)
+        logger->debug("\t\t\t\t\tallNodes_table: Added new node", n->nodeString());
     return make_pair(false, n);
   }
 }
@@ -363,7 +374,8 @@ inline void LPAStar::printAllNodesTable() {
 
 // ----------------------------------------------------------------------------
 inline LPANode* LPAStar::retrieveMinPred(LPANode* n) {
-  VLOG(11) << "\t\t\t\tretrieveMinPred: before " << n->nodeString();
+  if (logger->level() <= spdlog::level::debug)
+    logger->debug("\t\t\t\tretrieveMinPred: before {}", n->nodeString());
   LPANode* retVal = nullptr;
   auto best_vplusc_val = std::numeric_limits<float>::max();
   for (int direction = 0; direction < 5; direction++) {
@@ -382,8 +394,12 @@ inline LPANode* LPAStar::retrieveMinPred(LPANode* n) {
       }
     }
   }
-  VLOG_IF(11, retVal == nullptr) << "\t\t\t\tretrieveMinPred: min is NULL. The node probably has a vertex constraint on it - why are we retrieving its pred?";
-  VLOG_IF(11, retVal != nullptr) << "\t\t\t\tretrieveMinPred: min is " << retVal->nodeString();
+  if (retVal == nullptr)
+    logger->debug("\t\t\t\tretrieveMinPred: min is NULL."
+                 "The node probably has a vertex constraint on it - why are we retrieving its pred?");  // TODO: Check why this happens all the time and either remove or fix and change to warn
+  if (retVal != nullptr)
+    if (logger->level() <= spdlog::level::debug)
+      logger->debug("\t\t\t\tretrieveMinPred: min is ", retVal->nodeString());
   return retVal;
 }
 // ----------------------------------------------------------------------------
@@ -394,7 +410,8 @@ inline LPANode* LPAStar::retrieveMinPred(LPANode* n) {
 // ----------------------------------------------------------------------------
 inline void LPAStar::updateState(LPANode* n, const ConflictAvoidanceTable& cat, bool bp_already_set) {
   if (n != start_n) {
-    VLOG(7) << "\t\tupdateState: Start working on " << n->nodeString();
+    if (logger->level() <= spdlog::level::info)
+      spdlog::info("\t\tupdateState: Start working on {}", n->nodeString());
     if (bp_already_set == false) {
         n->bp_ = retrieveMinPred(n);
     }
@@ -409,20 +426,21 @@ inline void LPAStar::updateState(LPANode* n, const ConflictAvoidanceTable& cat, 
         n->g_ = std::numeric_limits<float>::max();
         n->conflicts_ = 0;  // may be overwritten later when the bp is set
     }
-    VLOG(7) << "\t\tupdateVertex: After updating bp -- " << n->nodeString();
+    if (logger->level() <= spdlog::level::info)
+      logger->info("\t\tupdateVertex: After updating bp -- {}", n->nodeString());
     // UpdateVertex from the paper:
     if ( !n->isConsistent() ) {
       if (n->in_openlist_ == false) {
         openlistAdd(n);  // The open list contains all inconsistent nodes
-        VLOG(7) << "\t\t\tand *PUSHED* to OPEN";
+        logger->info("\t\t\tand *PUSHED* to OPEN");
       } else {  // node is already in OPEN
         openlistUpdate(n);
-        VLOG(7) << "\t\t\tand *UPDATED* in OPEN";
+        logger->info("\t\t\tand *UPDATED* in OPEN");
       }
     } else {  // n is consistent
       if (n->in_openlist_) {
         openlistRemove(n);
-        VLOG(7) << "\t\t\tand *REMOVED* from OPEN";
+        logger->info("\t\t\tand *REMOVED* from OPEN");
       }
     }
 
@@ -435,7 +453,8 @@ inline void LPAStar::updateState(LPANode* n, const ConflictAvoidanceTable& cat, 
             break;  // This node is already in the list, a constraint on it was probably lifted
         }
         else if ((*it)->t_ > n->t_) {
-            VLOG(7) << "\t\tupdateState: Found a new possible goal " << n->nodeString();
+            if (logger->level() <= spdlog::level::info)
+                spdlog::info("\t\tupdateState: Found a new possible goal ", n->nodeString());
             possible_goals.insert(it, n);  // inserts before the iterator
             break;
         }
@@ -462,9 +481,9 @@ bool LPAStar::findPath(const ConflictAvoidanceTable& cat, int fLowerBound, int l
   // Can't use fLowerBound or BPMX to improve h values of new nodes - constraints might be removed later, making the
   // improved h incorrect.
 
-  VLOG(5) << "*** Starting LPA* findPath() ***";
+  logger->info("*** Starting LPA* findPath() ***");
   if (only_improve_current_path && goal_n->t_ == numeric_limits<int>::max()) {
-      VLOG(15) << "Asked to improve the path or build an MDD but a path hasn't been found previously";
+      logger->error("Asked to improve the path or build an MDD but a path hasn't been found previously");
       std::abort();
   }
   if (only_improve_current_path == false)
@@ -482,11 +501,13 @@ bool LPAStar::findPath(const ConflictAvoidanceTable& cat, int fLowerBound, int l
         break;
     }
 
-    VLOG(5) << "OPEN: { " << openToString(true) << " }\n";
+    if (logger->level() <= spdlog::level::info)
+      logger->info("OPEN: {{{}}}", openToString(true));
     auto curr = openlistPopHead();
-    VLOG(5) << "\tPopped node: " << curr->nodeString();
+    if (logger->level() <= spdlog::level::info)
+      logger->info("\tPopped node: {}", curr->nodeString());
     if (curr->v_ > curr->g_) {  // Overconsistent (v>g).
-      VLOG(7) << "(it is *over*consistent)";
+      logger->info("(it is *over*consistent)");
       float old_v = curr->v_;
       curr->v_ = curr->g_;
 //      update_v_bucket(curr, old_v);
@@ -504,7 +525,7 @@ bool LPAStar::findPath(const ConflictAvoidanceTable& cat, int fLowerBound, int l
         }
       }
     } else {  // Underconsistent (v<g).
-      VLOG(7) << "(it is *under*consistent)";
+      logger->info("(it is *under*consistent)");
       float old_v = curr->v_;
       curr->v_ = std::numeric_limits<float>::max();
 //      update_v_bucket(curr, old_v);
@@ -637,7 +658,9 @@ void LPAStar::updateGoal() {
                                                        // even if we don't know how to reach it yet (v and g could be infinity)
         ) {
             if (goal_n != possible_goal)
-                VLOG(7) << "\t\tupdateGoal: Goal node update -- from " << goal_n->nodeString() << " to " << possible_goal->nodeString();
+                if (logger->level() <= spdlog::level::info)
+                  logger->info("\t\tupdateGoal: Goal node update -- from {} to {}",
+                               goal_n->nodeString(), possible_goal->nodeString());
             goal_n = possible_goal;
             break;
         }

@@ -1,4 +1,4 @@
-﻿#include "map_loader.h"
+#include "map_loader.h"
 #include "agents_loader.h"
 #include "ICBSSearch.h"
 
@@ -6,7 +6,12 @@
 #include <boost/property_tree/ptree.hpp>  // For boost::property_tree
 #include <boost/process.hpp>
 #include <execinfo.h>
-#include "g_logging.h"
+#include <spdlog/spdlog.h>
+#include <spdlog/sinks/stdout_color_sinks.h>
+#include <spdlog/sinks/rotating_file_sink.h>
+#include "spdlog/cfg/env.h" // for loading levels from the environment variable
+#include <spdlog/cfg/helpers.h>
+#include <spdlog/details/registry.h>
 #include <fstream>
 #include <string>
 
@@ -17,15 +22,9 @@
 namespace pt = boost::property_tree;
 using namespace std;
 
-int glog_v;
-
-int main(int argc, char** argv) 
+int main(int argc, char** argv)
 {
-    // Init GLOG.
-    FLAGS_logtostderr = 1;
-    google::InitGoogleLogging(argv[0]);
-
-	namespace po = boost::program_options;
+    namespace po = boost::program_options;
 	// Declare the supported options.
 	po::options_description desc("Allowed options");
 	desc.add_options()
@@ -40,14 +39,14 @@ int main(int argc, char** argv)
 		("propagation", po::value<bool>()->default_value(true), "propagate positive constraints to narrow levels down the MDD")
 		("prefer_f_cardinal", po::value<bool>()->default_value(true), "prefer f-cardinal conflicts")
 		("prefer_goal_conflicts", po::value<bool>()->default_value(true), "prefer goal conflicts")
-		("screen", po::value<int>()->default_value(0), "screen (0: only results; 1: details)")
 		("cutoffTime", po::value<int>()->default_value(60), "cutoff time (seconds)")
 		("seed", po::value<int>(), "random seed")
 		("childPrefBudget", po::value<int>()->default_value(5), "Child preference budget")
 		("maxChildPrefOptions", po::value<int>()->default_value(20), "Max child preference options")
 		("focalW", po::value<float>()->default_value(1), "ECBS focal W")
-		("verbosity,v", po::value<int>(&glog_v)->default_value(0), "Set verbose logging level")
-	;
+        ("log_level", po::value<std::string>()->default_value("warning"), "Set log level. "
+            "For example, debug, or logger1=trace, or off,logger1=debug,logger2=info")
+        ;
 
 	po::variables_map vm;
 	po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -59,8 +58,42 @@ int main(int argc, char** argv)
 
 	po::notify(vm);
 
-    FLAGS_v = glog_v;
-	
+	// Configure logging
+    try {
+        auto rotating_sink = make_shared<spdlog::sinks::rotating_file_sink_mt>(
+            "spdlog.txt", 1000000, 5, false);
+        rotating_sink->set_level(spdlog::level::err);
+        auto console_sink = make_shared<spdlog::sinks::stderr_color_sink_mt>();
+        console_sink->set_level(spdlog::level::trace);
+        spdlog::sinks_init_list sink_list = {rotating_sink, console_sink};
+        auto logger = make_shared<spdlog::logger>("", sink_list.begin(), sink_list.end());
+        logger->set_level(spdlog::level::warn);
+        logger->flush_on(spdlog::level::err);
+        spdlog::set_default_logger(logger);
+        auto lpastar_logger = make_shared<spdlog::logger>("LPA*", sink_list.begin(), sink_list.end());
+        lpastar_logger->flush_on(spdlog::level::err);
+        spdlog::register_logger(lpastar_logger);
+        spdlog::get("LPA*")->set_level(spdlog::level::warn);
+        auto dcm_logger = make_shared<spdlog::logger>("DCM", sink_list.begin(), sink_list.end());
+        dcm_logger->flush_on(spdlog::level::err);
+        spdlog::register_logger(dcm_logger);
+        spdlog::get("DCM")->set_level(spdlog::level::warn);
+        auto iterative_deepening_logger = make_shared<spdlog::logger>("ID", sink_list.begin(), sink_list.end());
+        iterative_deepening_logger->flush_on(spdlog::level::err);
+        spdlog::register_logger(iterative_deepening_logger);
+        spdlog::get("ID")->set_level(spdlog::level::warn);
+        // TODO: Add an abort handler that calls spdlog::shutdown() so Ctrl+C won't kill the logs
+
+        // Load levels from env/cmdline, if provided
+        spdlog::cfg::load_env_levels();
+        auto levels = spdlog::cfg::helpers::extract_levels(vm["log_level"].as<string>());
+        spdlog::details::registry::instance().update_levels(std::move(levels));
+    }
+    catch (const spdlog::spdlog_ex& ex) {
+        std::cerr << "Log initialization failed:" << ex.what() << std::endl;
+    }
+
+
 	// read the map file and construct its two-dimensional array
 	MapLoader ml(vm["map"].as<string>());
 
@@ -120,7 +153,7 @@ int main(int argc, char** argv)
     try {
         ICBSSearch icbs(ml, al, vm["focalW"].as<float>(), p, h, vm["cutoffTime"].as<int>(),
                         vm["childPrefBudget"].as<int>(), vm["maxChildPrefOptions"].as<int>(),
-                        vm["screen"].as<int>(), vm["propagation"].as<bool>(),
+                        vm["propagation"].as<bool>(),
                         vm["prefer_f_cardinal"].as<bool>(), vm["prefer_goal_conflicts"].as<bool>());
 
         // run

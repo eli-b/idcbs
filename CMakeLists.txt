@@ -10,10 +10,10 @@ include_directories(.
 
 link_libraries(boost_program_options
         pthread  # Used by one of the other dependencies
-        glog
         stdc++fs
         $ENV{GUROBI_HOME}/lib/libgurobi_c++.a
         $ENV{GUROBI_HOME}/lib/libgurobi81.so
+        libspdlog.a
         )
 
 add_executable(disjoint_CBSH
@@ -26,7 +26,6 @@ add_executable(disjoint_CBSH
         dynamic_constraints_manager.cpp
         dynamic_constraints_manager.h
         driver.cpp
-        g_logging.h
         ICBSNode.cpp
         ICBSNode.h
         ICBSSearch.cpp

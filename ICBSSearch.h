@@ -23,7 +23,6 @@ public:
 	bool posConstraintsAlsoAddPosConstraintsOnMddNarrowLevelsLeadingToThem = false;
 	bool preferFCardinals = true;
 	bool preferGoalConflicts = true;
-	int screen = 0;
 	highlevel_heuristic HL_heuristic;
 	double focal_w = 1.0;
 	int child_pref_budget;
@@ -110,7 +109,7 @@ public:
 	conflict_type conflictType;
 	
 	// print
-	void printPaths(vector<Path *> &paths, int max_len = 100) const;
+	void printPaths(std::ostream& stream, vector<Path *> &paths, int max_len = 100) const;
 	void printResults() const;
 	void saveResults(const string& outputFile, const string& agentFile, const string& solver) const;
 
@@ -119,7 +118,7 @@ public:
 	bool runICBSSearch();
 	bool runIterativeDeepeningICBSSearch();
 	ICBSSearch(const MapLoader &ml, const AgentsLoader &al, double focal_w, split_strategy p, highlevel_heuristic HL_h,
-               int cutoffTime, int child_pref_budget, int max_child_pref_options, int screen,
+               int cutoffTime, int child_pref_budget, int max_child_pref_options,
                bool propagatePositiveCons, bool preferFCardinals, bool preferGoalConflicts);
 	~ICBSSearch();
 
@@ -150,8 +149,8 @@ private:
 	vector<vector<PathEntry>> paths_found_initially;  // contains the initial path that was found for each agent
 
 	// print
-	void printConflicts(const ICBSNode &n) const;
-	void printConstraints(const ICBSNode* n) const;
+	void printConflicts(std::ostream& stream, const ICBSNode &n) const;
+	void printConstraints(std::ostream& stream, const ICBSNode* n) const;
 
 	//conflicts
 	void findConflicts(ICBSNode& curr);

@@ -5,6 +5,7 @@
 #include <cstring>  // For memcpy
 #include <cstdlib>  // For mkstemp, abs
 #include <cstdio>  // For fopen, fdopen
+#include <spdlog/spdlog.h>
 //#include <random>  // For default_random_engine
 
 //////////////////// HIGH LEVEL HEURISTICS ///////////////////////////
@@ -359,14 +360,12 @@ int ICBSSearch::computeHeuristic(ICBSNode& curr)
         }
 
         if (f_cardinal_found) {
-            if (screen) {
-                if (curr.conflict == orig_conflict)
-                    cerr << "The already chosen conflict " << *curr.conflict <<
-                         " will increase the F value of at least one of its children" << endl;
-                else
-                    cerr << "Switched from conflict " << *orig_conflict << " to conflict " << *curr.conflict <<
-                         " - it will increase the F value of at least one of its children" << endl;
-            }
+            if (curr.conflict == orig_conflict)
+                spdlog::info("The already chosen conflict {}"
+                             " will increase the F value of at least one of its children", *curr.conflict);
+            else
+                spdlog::info("Switched from conflict {} to conflict {}"
+                             " - it will increase the F value of at least one of its children", *orig_conflict, *curr.conflict);
         }
     }
 
@@ -570,18 +569,20 @@ void ICBSSearch::buildConflictAvoidanceTable(const ICBSNode &node, int exclude_a
 }
 
 void ICBSSearch::addPathToConflictAvoidanceTable(Path &path, ConflictAvoidanceTable &cat, int agent_id) {
-    if (screen) {
-        cout << "Adding the path (size " << path.size() - 1 << ") of agent " << agent_id << " to the CAT: ";
-
-        if (path.size() < 100) {
+    if (spdlog::default_logger()->level() <= spdlog::level::debug) {
+        ostringstream msg;
+        msg << "Adding the path (size " << path.size() - 1 << ") of agent " << agent_id << " to the CAT: ";
+        if (path.size() < 100)
+        {
             int t = 0;
             for ( ; t < path.size() - 1; t++)
-                std::cout << t << ": (" << path[t].location / num_map_cols << ","
+                msg << t << ": (" << path[t].location / num_map_cols << ","
                           << path[t].location % num_map_cols << "), ";
-            std::cout << t << ": (" << path[t].location / num_map_cols << ","
-                      << path[t].location % num_map_cols << ")" << endl;
+            msg << t << ": (" << path[t].location / num_map_cols << ","
+                      << path[t].location % num_map_cols << ")";
         } else
-            std::cout << "(path too long to print)" << endl;
+            msg << "(path too long to print)";
+        spdlog::debug(msg.str());
     }
 
     auto cat_start = std::clock();
@@ -605,18 +606,20 @@ void ICBSSearch::addPathToConflictAvoidanceTable(Path &path, ConflictAvoidanceTa
 }
 
 void ICBSSearch::removePathFromConflictAvoidanceTable(Path &path, ConflictAvoidanceTable &cat, int agent_id) {
-    if (screen) {
-        cout << "Removing the path (size " << path.size() - 1 << ") of agent " << agent_id << " from the CAT: ";
+    if (spdlog::default_logger()->level() <= spdlog::level::debug) {
+        ostringstream msg;
+        msg << "Removing the path (size " << path.size() - 1 << ") of agent " << agent_id << " from the CAT: ";
 
         if (path.size() < 100) {
             int t = 0;
             for ( ; t < path.size() - 1; t++)
-                std::cout << t << ": (" << path[t].location / num_map_cols << ","
-                          << path[t].location % num_map_cols << "), ";
-            std::cout << t << ": (" << path[t].location / num_map_cols << ","
-                      << path[t].location % num_map_cols << ")" << endl;
+                msg << t << ": (" << path[t].location / num_map_cols << ","
+                    << path[t].location % num_map_cols << "), ";
+            msg << t << ": (" << path[t].location / num_map_cols << ","
+                << path[t].location % num_map_cols << ")";
         } else
-            std::cout << "(path too long to print)" << endl;
+            msg << "(path too long to print)";
+        spdlog::debug(msg.str());
     }
 
 	auto cat_start = std::clock();
@@ -826,7 +829,7 @@ void ICBSSearch::classifyConflicts(ICBSNode &node, ConflictAvoidanceTable* cat /
 	{
 		if (std::clock() > start + time_limit * CLOCKS_PER_SEC)  // timeout
 		{
-			cerr << "Timed out classifying conflicts!" << endl;
+			spdlog::warn("Timed out classifying conflicts!");
 			break;
 		}
 		std::shared_ptr<Conflict> con = node.unknownConf.back();
@@ -1269,8 +1272,7 @@ bool ICBSSearch::buildMDD(ICBSNode &curr, int ag, int timestep, int lookahead /*
 	if (path[timestep].builtMDD)
 		return true;
 
-	if (screen)
-	    cout << "Building MDD of length " << path.size() << " for agent " << ag << endl;
+	spdlog::info("Building MDD of length {} for agent {}", path.size(), ag);
 
 	// Find the last node on this branch that computed a new path for this agent
 	ICBSNode* node = &curr; // Back to where we get the path
@@ -1527,8 +1529,7 @@ void ICBSSearch::disjoint_branch_on_agent(ICBSNode* parent, ICBSNode* child1, IC
     child1->all_paths = nullptr;
     child2->all_paths = nullptr;
 
-    if (screen)
-        std::cout << "Disjoint branching on agent " << agent << " (positive constraint first)" << std::endl;
+    spdlog::info("Disjoint branching on agent {} (positive constraint first)", agent);
 }
 
 
@@ -1649,17 +1650,14 @@ bool ICBSSearch::disjoint_branch_and_generate_with_up_and_down(ICBSNode* parent,
 
 	LL_num_generated += child1->add_constraint(make_tuple(location1, location2, timestep, true), cat, true, posConstraintsAlsoAddPosConstraintsOnMddNarrowLevelsLeadingToThem);
 	auto [child1_or_nullptr, continue_to_next_child1] = generateChild(child1, cat); // plan paths for child1, storing them in its new_paths
-	if (screen == 1) {
-		if (child1_or_nullptr != nullptr) {
-			std::cout << "Generated left child #" << child1->time_generated <<
-					     " with f=  " << child1->g_val << "+" << child1->h_val <<
-					     " and " << child1->num_of_conflicts << " conflicts " << std::endl;
-		} else if (continue_to_next_child1) {
-			std::cout << "No feasible solution for left child! " << std::endl;
-		}
-        if (!continue_to_next_child1)
-            std::cout << "Left child found a bypass - adopting its new paths without splitting" << std::endl;
-	}
+    if (child1_or_nullptr != nullptr) {
+        spdlog::info("Generated left child #{} with f=  {}+{} and {} conflicts ",
+                     child1->time_generated, child1->g_val, child1->h_val, child1->num_of_conflicts);
+    } else if (continue_to_next_child1) {
+        spdlog::info("No feasible solution for left child!");
+    }
+    if (!continue_to_next_child1)
+        spdlog::info("Left child found a bypass - adopting its new paths without splitting");
     if (child1_or_nullptr != nullptr && continue_to_next_child1)  // Child might have been deleted in generateChild. FIXME: Bad design.
 	    child1->all_paths = nullptr;
 #ifndef LPA
@@ -1676,21 +1674,17 @@ bool ICBSSearch::disjoint_branch_and_generate_with_up_and_down(ICBSNode* parent,
 	LL_num_generated += child2->add_constraint(make_tuple(location1, location2, timestep, false), cat, true, posConstraintsAlsoAddPosConstraintsOnMddNarrowLevelsLeadingToThem);
 	child2->all_paths = parent->all_paths;  // Temporarily
     auto [child2_or_nullptr, continue_to_next_child2] = generateChild(child2, cat); // plan paths for child2
-	if (screen == 1)
-	{
-		if (child2_or_nullptr != nullptr)
-		{
-			std::cout << "Generated right child #" << child2->time_generated <<
-                          " with f=  " << child2->g_val << "+" << child2->h_val <<
-					      " and " << child2->num_of_conflicts << " conflicts " << std::endl;
-		}
-		else if (continue_to_next_child2)
-		{
-			std::cout << "No feasible solution for right child! " << std::endl;
-		}
-        if (!continue_to_next_child2)
-            std::cout << "Right child found a bypass - adopting its new paths without splitting" << std::endl;
-	}
+    if (child2_or_nullptr != nullptr)
+    {
+        spdlog::info("Generated right child #{} with f=  {}+{} and {} conflicts ",
+                     child2->time_generated, child2->g_val, child2->h_val, child2->num_of_conflicts);
+    }
+    else if (continue_to_next_child2)
+    {
+        spdlog::info("No feasible solution for right child!");
+    }
+    if (!continue_to_next_child2)
+        spdlog::info("Right child found a bypass - adopting its new paths without splitting");
     if (child2_or_nullptr != nullptr && continue_to_next_child2)  // Child might have been deleted in generateChild. FIXME: Bad design.
 	    child2->all_paths = nullptr;
 #ifndef LPA
@@ -1780,17 +1774,14 @@ bool ICBSSearch::branch_and_generate_with_up_and_down(ICBSNode* parent, ICBSNode
 		vector<Path*> temp(*parent->all_paths);
 		child1->all_paths = parent->all_paths;
         auto [child1_or_nullptr, continue_to_next_child1] = generateChild(child1, cat); // plan paths for child1, storing them in its new_paths
-		if (screen == 1) {
-			if (child1_or_nullptr != nullptr) {
-				std::cout << "Generated left child #" << child1->time_generated <<
-						     " with f= " << child1->g_val << "+" << child1->h_val <<
-						     " and " << child1->num_of_conflicts << " conflicts " << std::endl;
-			} else if (continue_to_next_child1) {
-				std::cout << "No feasible solution for left child! " << std::endl;
-			}
-            if (!continue_to_next_child1)
-                std::cout << "Left child found a bypass - adopting its new paths without splitting" << std::endl;
-		}
+        if (child1_or_nullptr != nullptr) {
+            spdlog::info("Generated left child #{} with f= {}+{} and {} conflicts ",
+                         child1->time_generated, child1->g_val, child1->h_val, child1->num_of_conflicts);
+        } else if (continue_to_next_child1) {
+            spdlog::info("No feasible solution for left child!");
+        }
+        if (!continue_to_next_child1)
+            spdlog::info("Left child found a bypass - adopting its new paths without splitting");
 		if (child1_or_nullptr != nullptr && continue_to_next_child1) {  // Otherwise child1 was deleted and this is unsafe
             child1->all_paths = nullptr;
         }
@@ -1817,21 +1808,17 @@ bool ICBSSearch::branch_and_generate_with_up_and_down(ICBSNode* parent, ICBSNode
 		child2->all_paths = parent->all_paths;
 		auto [child2_or_nullptr, continue_to_next_child2] = generateChild(child2, cat); // plan paths for child2
 
-		if (screen == 1)
-		{
-			if (child2_or_nullptr != nullptr)
-			{
-				std::cout << "Generated right child #" << child2->time_generated <<
-						     " with f= " << child2->g_val << "+" << child2->h_val <<
-						     " and " << child2->num_of_conflicts << " conflicts " << std::endl;
-			}
-			else if (continue_to_next_child2)
-			{
-				std::cout << "No feasible solution for right child! " << std::endl;
-			}
-		    if (!continue_to_next_child2)
-		        std::cout << "Right child found a bypass - adopting its new paths without splitting" << std::endl;
-		}
+        if (child2_or_nullptr != nullptr)
+        {
+            spdlog::info("Generated right child #{} with f= {}+{} and {} conflicts ",
+                         child2->time_generated, child2->g_val, child2->h_val, child2->num_of_conflicts);
+        }
+        else if (continue_to_next_child2)
+        {
+            spdlog::info("No feasible solution for right child!");
+        }
+        if (!continue_to_next_child2)
+            spdlog::info("Right child found a bypass - adopting its new paths without splitting");
 		if (child2_or_nullptr != nullptr && continue_to_next_child2) {  // Otherwise child1 was deleted and this is unsafe
 		    child2->all_paths = nullptr;
 		}
@@ -1895,11 +1882,10 @@ std::tuple<ICBSNode *, bool> ICBSSearch::generateChild(ICBSNode *child, Conflict
 				int h_increase = timestep + 1 - ((int)parent_paths[a[i]]->size() - 1);
 				h += h_increase;
 				child->partialExpansion = true;
-				if (screen == 1)
-					std::cout << "Partial expansion! Conflict timestep " <<  timestep <<
-					             " > " << parent_paths[a[i]]->size() - 1 << " timestep agent " << a[i] << " currently "
-                                 "reaches its goal. Not planning a path yet - we know the cost will increase! "
-                                 "Pushing back with h increased by " << h_increase << std::endl;
+                spdlog::info("Partial expansion! Conflict timestep {} > {} timestep agent {} currently "
+                             "reaches its goal. Not planning a path yet - we know the cost will increase! "
+                             "Pushing back with h increased by {}", timestep, parent_paths[a[i]]->size() - 1,
+                             a[i], h_increase);
 				continue;
 			}
 			int lowerbound;
@@ -1950,11 +1936,10 @@ std::tuple<ICBSNode *, bool> ICBSSearch::generateChild(ICBSNode *child, Conflict
 					int h_increase = timestep + 1 - ((int)parent_paths[ag]->size() - 1);
 					h += h_increase;
 					child->partialExpansion = true;
-					if (screen == 1)
-                        std::cout << "Partial expansion! Conflict timestep " <<  timestep <<
-                                  " > " << parent_paths[ag]->size() - 1 << " timestep agent " << ag << " currently reaches its goal" <<
-                                  ". Not planning a path yet - we know the cost will increase! " <<
-                                  "Pushing back with h increased by " << h_increase << std::endl;
+                    spdlog::info("Partial expansion! Conflict timestep {} > {} timestep agent {} currently "
+                                 "reaches its goal. Not planning a path yet - we know the cost will increase! "
+                                 "Pushing back with h increased by {}", timestep, parent_paths[ag]->size() - 1,
+                                 ag, h_increase);
 				}
 				else if (!findPathForSingleAgent(child, cat, timestep,
                                                  max((int) parent_paths[ag]->size() - 1, timestep), ag, false))
@@ -2041,8 +2026,8 @@ std::tuple<ICBSNode *, bool> ICBSSearch::generateChild(ICBSNode *child, Conflict
 	} else
 		child->count_conflicts();  // Just so it has some count and not zero, even if the count will be overridden later
 
-	if (screen) // check the solution
-		arePathsConsistentWithConstraints(parent_paths, child);
+    if (spdlog::default_logger()->level() < spdlog::level::warn)
+		arePathsConsistentWithConstraints(parent_paths, child); // check the solution
 
 	HL_num_generated++;
 	child->time_generated = HL_num_generated;
@@ -2082,11 +2067,13 @@ std::tuple<ICBSNode *, bool> ICBSSearch::generateChild(ICBSNode *child, Conflict
         sum_num_conflicts += parent->num_of_conflicts;
         ++num_num_conflicts;
 		if (parent->num_of_conflicts >= old_parent_conflict_count) {
-			cerr << "Same number of conflicts?? parent conflicts:" << endl;
-			printConflicts(*parent);
-			cerr << "Same number of conflicts?? child conflicts:" << endl;
-			printConflicts(*child);
-			abort();
+		    ostringstream msg;
+		    msg << "Same number of conflicts?? parent conflicts:" << endl;
+			printConflicts(msg, *parent);
+            msg << "Same number of conflicts?? child conflicts:" << endl;
+            printConflicts(msg, *child);
+            spdlog::critical(msg.str());
+            abort();
 		}
 		delete child;
 		return make_tuple(nullptr, false);
@@ -2212,8 +2199,7 @@ bool ICBSSearch::findPathForSingleAgent(ICBSNode *node, ConflictAvoidanceTable *
 		if (start_location_and_time.second == 0 && goal_location_and_time.second == numeric_limits<int>::max() &&
 				node->lpas[ag] != nullptr
 				) {
-			if (screen)
-				cout << "Calling LPA* again for agent " << ag << endl;
+			spdlog::debug("Calling LPA* again for agent {}", ag);
 			int generated_before = node->lpas[ag]->allNodes_table.size();
 			clock_t ll_start = std::clock();
 			auto wall_ll_start = std::chrono::system_clock::now();
@@ -2234,19 +2220,17 @@ bool ICBSSearch::findPathForSingleAgent(ICBSNode *node, ConflictAvoidanceTable *
                     if (node->lpas[ag]->path_cost !=
                         ((*node->all_paths)[ag])->size() - 1) {  // TODO: Support non-unit edge costs
                         if (node->parent != nullptr)
-                            cerr << "The cost of the path of agent " << ag << " in child of #"
-                                 << node->parent->time_generated << " increased unexpectedly" << endl;
+                            spdlog::critical("The cost of the path of agent {} in child of #{} increased unexpectedly",
+                                             ag, node->parent->time_generated);
                         else
-                            cerr << "The cost of the path of agent " << ag << " in child of #"
-                                 << node->time_generated << " increased unexpectedly" << endl;
+                            spdlog::critical("The cost of the path of agent {} in child of #{} increased unexpectedly",
+                                             ag, node->time_generated);
                         abort();
                     }
 
                     // TODO: Consider using the CAT to check if the current path has any conflicts first.
                     //       No need to do O(MDD size) work just to find an equally-perfect path
-                    if (screen) {
-                        cout << "Non-incrementally finding a conflict-avoiding path for agent " << ag << endl;
-                    }
+                    spdlog::info("Non-incrementally finding a conflict-avoiding path for agent {}", ag);
                     foundSol = node->lpas[ag]->findBetterPath(*cat, start + time_limit * CLOCKS_PER_SEC);
                 } else if (
                         (node->parent != nullptr &&  // We're running best-first traversal
@@ -2261,11 +2245,11 @@ bool ICBSSearch::findPathForSingleAgent(ICBSNode *node, ConflictAvoidanceTable *
                 ) {
                     if (node->lpas[ag]->path_cost <= ((*node->all_paths)[ag])->size() - 1) {  // TODO: Support non-unit edge costs
                         if (node->parent != nullptr)
-                            cerr << "The cost of the path of agent " << ag << " in child of #"
-                                 << node->parent->time_generated << " unexpectedly did not increase" << endl;
+                            spdlog::critical("The cost of the path of agent {} in child of #{} unexpectedly "
+                                             "did not increase", ag, node->parent->time_generated);
                         else
-                            cerr << "The cost of the path of agent " << ag << " in child of #"
-                                 << node->time_generated << " unexpectedly did not increase" << endl;
+                            spdlog::critical("The cost of the path of agent {} in child of #{} unexpectedly "
+                                             "did not increase", ag, node->time_generated);
                         abort();
                     }
                 }
@@ -2295,9 +2279,8 @@ bool ICBSSearch::findPathForSingleAgent(ICBSNode *node, ConflictAvoidanceTable *
 		}
 		else
 		{
-			if (screen)
-				cout << "Calling normal A* for agent " << ag << " instead of LPA* because LPA* can't handle a changed "
-						"start, and can't recover if it was unable in the past" << endl;
+            spdlog::info("Calling normal A* for agent {} instead of LPA* because LPA* can't handle a changed "
+						"start, and can't recover if it was unable in the past", ag);
 			if (node->lpas[ag] != NULL) {
 				delete node->lpas[ag];  // We've just created this copy - it's unused anywhere else
 				node->lpas[ag] = NULL;
@@ -2338,8 +2321,12 @@ bool ICBSSearch::findPathForSingleAgent(ICBSNode *node, ConflictAvoidanceTable *
 	(*node->all_paths)[ag] = pNewPath;
 	node->makespan = max(node->makespan, (int)pNewPath->size() - 1);
 
-	if (screen)
-		this->printPaths(*node->all_paths);
+    if (spdlog::default_logger()->level() <= spdlog::level::info)
+    {
+        ostringstream msg;
+        this->printPaths(msg, *node->all_paths);
+        spdlog::info(msg.str());
+    }
 
 	return true;
 }
@@ -2416,14 +2403,14 @@ bool ICBSSearch::arePathsConsistentWithConstraints(vector<Path *> &paths, ICBSNo
 				{
 					if (paths[agent]->size() > timestep && paths[agent]->at(timestep).location == loc1)
 					{
-						std::cout << "The path of agent " << agent << " violates negative constraint " << con <<
-						    " from node #" << node->time_generated << std::endl;
+						spdlog::error("The path of agent {} violates negative constraint {} from node #{}",
+						              agent, con, node->time_generated);
 						exit(1);
 					}
 					else if (paths[agent]->size() <= timestep && paths[agent]->back().location == loc1)
 					{
-						std::cout << "The path of agent " << agent << " violates negative constraint " << con <<
-						    " from node #" << node->time_generated << std::endl;
+						spdlog::error("The path of agent {} violates negative constraint {} from node #{}",
+                                      agent, con, node->time_generated);
 						exit(1);
 					}
 				}
@@ -2433,8 +2420,8 @@ bool ICBSSearch::arePathsConsistentWithConstraints(vector<Path *> &paths, ICBSNo
 						paths[agent]->at(timestep - 1).location == loc1 &&
 						paths[agent]->at(timestep).location == loc2)
 					{
-						std::cout << "The path of agent " << agent << " violates negative constraint " << con <<
-						    " from node #" << node->time_generated << std::endl;
+                        spdlog::error("The path of agent {} violates negative constraint {} from node #{}",
+                                      agent, con, node->time_generated);
 						exit(1);
 					}
 				}
@@ -2450,8 +2437,8 @@ bool ICBSSearch::arePathsConsistentWithConstraints(vector<Path *> &paths, ICBSNo
 						{
 							if (timestep < paths[other_agent]->size() && paths[other_agent]->at(timestep).location != loc1)
 							{
-								std::cout << "The path of agent " << agent << " violates positive constraint " <<
-								    con << " from node #" << node->time_generated << std::endl;
+                                spdlog::error("The path of agent {} violates positive constraint {} from node #{}",
+                                              agent, con, node->time_generated);
 								exit(1);
 							}
 						}
@@ -2461,8 +2448,8 @@ bool ICBSSearch::arePathsConsistentWithConstraints(vector<Path *> &paths, ICBSNo
 								(paths[other_agent]->at(timestep - 1).location != loc1 ||
 								 paths[other_agent]->at(timestep).location != loc2))
 							{
-								std::cout << "The path of agent " << agent << " violates positive constraint " << con
-								    << " from node #" << node->time_generated << std::endl;
+                                spdlog::error("The path of agent {} violates positive constraint {} from node #{}",
+                                              agent, con, node->time_generated);
 								exit(1);
 							}
 						}
@@ -2473,8 +2460,8 @@ bool ICBSSearch::arePathsConsistentWithConstraints(vector<Path *> &paths, ICBSNo
 						{
 							if (loc2 < 0 && paths[other_agent]->at(paths[other_agent]->size() - 1).location == loc1)
 							{
-								std::cout << "The path of agent " << other_agent << " violates positive constraint " <<
-								    con << " on agent " << agent << " from node #" << node->time_generated << std::endl;
+                                spdlog::error("The path of agent {} violates positive constraint {} on agent {} "
+                                              "from node #{}", other_agent, con, agent, node->time_generated);
 								exit(1);
 							}
 						}
@@ -2482,8 +2469,8 @@ bool ICBSSearch::arePathsConsistentWithConstraints(vector<Path *> &paths, ICBSNo
 						{
 							if (paths[other_agent]->at(timestep).location == loc1)
 							{
-								std::cout << "The path of agent " << other_agent << " violates positive constraint " <<
-								    con << " on agent " << agent << " from node #" << node->time_generated << std::endl;
+                                spdlog::error("The path of agent {} violates positive constraint {} on agent {} "
+                                              "from node #{}", other_agent, con, agent, node->time_generated);
 								exit(1);
 							}
 						}
@@ -2493,8 +2480,8 @@ bool ICBSSearch::arePathsConsistentWithConstraints(vector<Path *> &paths, ICBSNo
 								paths[other_agent]->at(timestep - 1).location == loc1 ||
 								paths[other_agent]->at(timestep).location == loc2)
 							{
-								std::cout << "The path of agent " << other_agent << " violates positive constraint " <<
-								    con << " on agent " << agent << " from node #" << node->time_generated << std::endl;
+                                spdlog::error("The path of agent {} violates positive constraint {} on agent {} "
+                                              "from node #{}", other_agent, con, agent, node->time_generated);
 								exit(1);
 							}
 						}
@@ -2513,16 +2500,16 @@ void ICBSSearch::isSolutionFeasible()
 {
 	bool good = true;
 	if (!solution_found) {
-		cerr << "Solution not found but success was reported?!?!" << endl;
+	    spdlog::error("Solution not found but success was reported?!?!");
 		abort();
 	}
 
 	if (solution_cost < min_f_val) {
-		cerr << "Solution cost " << solution_cost << " < min f val " << min_f_val << "?!?!" << endl;
+	    spdlog::error("Solution cost {} < min f val {}?!?!", solution_cost, min_f_val);
 		good = false;
 	}
 	if (solution_cost > min_f_val * focal_w) {
-		cerr << "Solution cost " << solution_cost << " > min f val " << min_f_val << " * focal_w " << focal_w << "!" << endl;
+	    spdlog::error("Solution cost {} > min f val {} * focal_w {}!", solution_cost, min_f_val, focal_w);
 		good = false;
 	}
 //	vector<Path*> paths(num_of_agents, nullptr);
@@ -2533,17 +2520,17 @@ void ICBSSearch::isSolutionFeasible()
 	{
 		sum += (int)paths[i]->size() - 1;
 		if (paths[i]->front().location != search_engines[i]->start_location) {
-        	cerr << "Wrong start location for agent " << i << endl;
+        	spdlog::error("Wrong start location for agent {}", i);
         	good = false;
 		}
 		if (paths[i]->back().location != search_engines[i]->goal_location) {
-			cerr << "Wrong goal location for agent " << i << endl;
+			spdlog::error("Wrong goal location for agent {}", i);
 			good = false;
 		}
 		for (int t = 1; t < paths[i]->size(); t++)
 		{
 			if (search_engines[0]->my_map[paths[i]->at(t).location]) {
-			    cerr << "Path of agent " << i << " goes through an obstacle at timestep " << t << endl;
+			    spdlog::error("Path of agent {} goes through an obstacle at timestep {}", i, t);
 				good = false;
 			}
 			int move = paths[i]->at(t).location - paths[i]->at(t - 1).location;
@@ -2552,27 +2539,27 @@ void ICBSSearch::isSolutionFeasible()
 				if (move == search_engines[0]->moves_offset[j])
 					valid = true;
 			if (!valid) {
-                cerr << "Invalid Move for agent " << i << " from " << paths[i]->at(t - 1).location << " to "
-                     << paths[i]->at(t).location << endl;
+			    spdlog::error("Invalid move for agent {} from {} to {}",
+			                  i, paths[i]->at(t - 1).location, paths[i]->at(t).location);
                 good = false;
             }
 		}
 		for (int j = i + 1; j < num_of_agents; j++)
 		{
 			if (paths[i]->at(0).location == paths[j]->at(0).location) {
-				cerr << "Start position collision between agent " << i << " and " << j << "!" << endl;
+				spdlog::error("Start position collision between agent {} and {}!", i, j);
 				good = false;
 			}
 			int t_min = (int)min(paths[i]->size(), paths[j]->size());
 			for (int t = 1; t < t_min; t++)
 			{
 				if (paths[i]->at(t).location == paths[j]->at(t).location) {
-                    cerr << "Vertex collision between agent " << i << " and " << j << " at time " << t << "!" << endl;
+                    spdlog::error("Vertex collision between agent {} and {} at time {}!", i, j, t);
                     good = false;
 				}
 				else if (paths[i]->at(t).location == paths[j]->at(t - 1).location &&
 					paths[i]->at(t - 1).location == paths[j]->at(t).location) {
-					cerr << "Edge collision between agent " << i << " and " << j << " at time " << t << "!" << endl;
+					spdlog::error("Edge collision between agent {} and {} at time {}!", i, j, t);
 					good = false;
 				}
 			}
@@ -2592,14 +2579,15 @@ void ICBSSearch::isSolutionFeasible()
 			for (int t = t_min; t < paths[b]->size(); t++)
 			{
 				if (paths[a]->at(t_min - 1).location == paths[b]->at(t).location) {
-                    cerr << "Vertex collision between agent " << a << " staying at its goal and agent " << b << " going through it at timestep " << t << "!" << endl;
+                    spdlog::error("Vertex collision between agent {} staying at its goal and agent {} going through "
+                                  "it at timestep {}!", a, b, t);
                     good = false;
                 }
 			}
 		}
 	}
 	if (sum != solution_cost) {
-        cerr << "Solution cost wrong!" << endl;
+        spdlog::error("Solution cost is wrong!");
         good = false;
 	}
 	if (!good)
@@ -2684,54 +2672,53 @@ bool ICBSSearch::reinsert(ICBSNode* curr)
 
 
 //////////////////// PRINT ///////////////////////////
-void ICBSSearch::printPaths(vector<Path *> &the_paths, int max_len) const
+void ICBSSearch::printPaths(std::ostream& stream, vector<Path *> &the_paths, int max_len) const
 {
 	for (int i = 0; i < num_of_agents; i++)
 	{
-		std::cout << "Agent " << i << " (" << paths_found_initially[i].size() - 1 << " -->" <<
+        stream << "Agent " << i << " (" << paths_found_initially[i].size() - 1 << " -->" <<
 			the_paths[i]->size() - 1 << "): ";
 		if (the_paths[i]->size() < max_len) {
 		    int t = 0;
 			for ( ; t < the_paths[i]->size() - 1; t++)
-				std::cout << t << ": (" << the_paths[i]->at(t).location / num_map_cols << ","
+                stream << t << ": (" << the_paths[i]->at(t).location / num_map_cols << ","
 						  << the_paths[i]->at(t).location % num_map_cols << "), ";
-            std::cout << t << ": (" << the_paths[i]->at(t).location / num_map_cols << ","
+            stream << t << ": (" << the_paths[i]->at(t).location / num_map_cols << ","
                       << the_paths[i]->at(t).location % num_map_cols << ")";
 		} else
-			std::cout << "(path too long to print)";
-		std::cout << std::endl;
+            stream << "(path too long to print)";
 	}
 }
 
-void ICBSSearch::printConflicts(const ICBSNode &curr) const
+void ICBSSearch::printConflicts(std::ostream& stream, const ICBSNode &curr) const
 {
 	for (const auto& conflict: curr.cardinalGoalConf)
 	{
-		std::cout << "Cardinal-goal " << (*conflict) << std::endl;
+        stream << "Cardinal-goal " << (*conflict) << std::endl;
 	}
 	for (const auto& conflict: curr.cardinalConf)
 	{
-		std::cout << "Cardinal " << (*conflict) << std::endl;
+        stream << "Cardinal " << (*conflict) << std::endl;
 	}
 	for (const auto& conflict: curr.semiCardinalGoalConf)
 	{
-		std::cout << "Semi-cardinal-goal " << (*conflict) << std::endl;
+        stream << "Semi-cardinal-goal " << (*conflict) << std::endl;
 	}
 	for (const auto& conflict : curr.semiCardinalConf)
 	{
-		std::cout << "Semi-cardinal " << (*conflict) << std::endl;
+        stream << "Semi-cardinal " << (*conflict) << std::endl;
 	}
 	for (const auto& conflict : curr.nonCardinalConf)
 	{
-		std::cout << "Non-cardinal " << (*conflict) << std::endl;
+        stream << "Non-cardinal " << (*conflict) << std::endl;
 	}
 	for (const auto& conflict : curr.unknownConf)
 	{
-		std::cout << "Unknown-cardinality " << (*conflict) << std::endl;
+        stream << "Unknown-cardinality " << (*conflict) << std::endl;
 	}
 }
 
-void ICBSSearch::printConstraints(const ICBSNode* n) const
+void ICBSSearch::printConstraints(std::ostream& stream, const ICBSNode* n) const
 {
 	const ICBSNode* curr = n;
 	while (curr != nullptr)
@@ -2739,11 +2726,11 @@ void ICBSSearch::printConstraints(const ICBSNode* n) const
 		for (int j = 0; j < num_of_agents; ++j) {
 			for (const auto& con: curr->positive_constraints[j])
 			{
-				std::cout << curr->agent_id << ": " << con << std::endl;
+                stream << curr->agent_id << ": " << con << std::endl;
 			}
 			for (const auto& con: curr->negative_constraints[j])
 			{
-				std::cout << curr->agent_id << ": " << con << std::endl;
+                stream << curr->agent_id << ": " << con << std::endl;
 			}
 		}
 		curr = curr->parent;
@@ -2918,7 +2905,7 @@ void ICBSSearch::findShortestPathFromPrevNodeToCurr(ICBSNode *curr, ICBSNode* pr
 		steps_up_from_prev_node_to_lowest_common_ancestor.push_back(node);
 		node = node->parent;
 	}
-	std::cerr << "Lowest common ancestor not found?!?!" << std::endl;
+	spdlog::critical("Lowest common ancestor not found?!?!");
 	std::abort();
 }
 
@@ -2927,22 +2914,27 @@ bool ICBSSearch::runICBSSearch()
 {
 	if (HL_heuristic != highlevel_heuristic::NONE)
 #ifndef LPA
-		std::cout << "CBSH(" << focal_w << "): " << std::endl;
+        spdlog::info("CBSH({}): ", focal_w);
 #else
-		std::cout << "CBSH/LPA*: " << std::endl;
+        spdlog::info("CBSH/LPA*: ");
 #endif
 	else
 #ifndef LPA
-		std::cout << "ICBS(" << focal_w << "): " << std::endl;
+        spdlog::info("ICBS({}): ", focal_w);
 #else
-		std::cout << "ICBS/LPA*: " << std::endl;
+        spdlog::info("ICBS/LPA*: ");
 #endif
 
 	// Print the root node's paths
 	populatePaths(root_node, paths);
 	root_node->all_paths = &paths;
-	if (screen)
-		this->printPaths(paths);
+    if (spdlog::default_logger()->level() <= spdlog::level::info)
+    {
+        ostringstream msg;
+        msg << "Root node's paths: " << std::endl;
+        this->printPaths(msg, paths);
+        spdlog::info(msg.str());
+    }
 
 	ConflictAvoidanceTable* cat = nullptr;
 #ifdef CBS_LCA_JUMPING
@@ -2970,7 +2962,7 @@ bool ICBSSearch::runICBSSearch()
 		wall_runtime = std::chrono::system_clock::now() - wall_start;
 		if (runtime > time_limit * CLOCKS_PER_SEC)  // timeout
 		{
-		    cerr << "Timed out in CBS high level" << endl;
+		    spdlog::warn("Timed out in CBS high level");
 			break;
 		}
 
@@ -2994,10 +2986,9 @@ bool ICBSSearch::runICBSSearch()
                             if (node == focal_list.top())
                                 curr_child_pref_budget = child_pref_budget;  // We would have taken it anyway
                             else {
-                                if (screen)
-                                    std::cout << "Found an immediate child of the previous node in FOCAL! " <<
-                                                 "Choosing #" << node->time_generated << " instead of the top of FOCAL #" <<
-                                                 focal_list.top()->time_generated << std::endl;
+                                spdlog::info("Found an immediate child of the previous node in FOCAL! "
+                                             "Choosing #{} instead of the top of FOCAL #{}",
+                                             node->time_generated, focal_list.top()->time_generated);
                             }
                             focal_list.erase(node->focal_handle);
                             node->in_focal = false;
@@ -3027,10 +3018,8 @@ bool ICBSSearch::runICBSSearch()
     						if (curr == focal_list.top())
     							curr_child_pref_budget = child_pref_budget;  // We would have taken it anyway
                             else {
-                                if (screen)
-                                    std::cout << "Chose #" << curr->time_generated <<
-                                        " instead of the top of FOCAL #" << focal_list.top()->time_generated <<
-                                        " because it's closer to prev_node." << std::endl;
+                                spdlog::info("Chose #{} instead of the top of FOCAL #{} because it's closer to prev_node.",
+                                             curr->time_generated, focal_list.top()->time_generated);
                             }
     						focal_list.erase(curr->focal_handle);
                             curr->in_focal = false;
@@ -3038,8 +3027,7 @@ bool ICBSSearch::runICBSSearch()
     				}
                 }
                 else {
-                    if (screen)
-                        std::cout << "Child pref budget exhausted. Taking the top of FOCAL and refreshing the budget." << std::endl;
+                    spdlog::info("Child pref budget exhausted. Taking the top of FOCAL and refreshing the budget.");
                 }
             }
             // TODO: Prefer nodes that are closer to prev_node in the tree. More precisely, nodes whose path to prev_node
@@ -3069,15 +3057,14 @@ bool ICBSSearch::runICBSSearch()
             // been computed at the time.
             if (prev_f > curr->f_val) {
                 // TODO: Copy this check to IDCBS
-                cerr << "F value of #" << curr->time_generated << "=" << curr->f_val <<
-                        " < F value of prev node #" << prev_node->time_generated << "=" << prev_f << endl;
+                spdlog::error("F value of #{}={} < F value of prev node #{}={}",
+                              curr->time_generated, curr->f_val, prev_node->time_generated, prev_f);
                 abort();
             }
         }
 
         if (!currently_reexpanding_last_node) {
             prev_f = curr->f_val;
-//          cerr << "prev F set to #" << curr->time_generated << "= " << prev_f << endl;
 
             // get current solutions
             populatePaths(curr, paths);
@@ -3089,25 +3076,21 @@ bool ICBSSearch::runICBSSearch()
 
 		if (curr->partialExpansion)
 		{
-			if (screen)
-				std::cout << std::endl << "Finishing partial expansion of node #" << curr->time_generated << std::endl;
+			spdlog::info("Finishing partial expansion of node #{}", curr->time_generated);
 			bool solved = finishPartialExpansion(curr, cat);
 			if (!solved) {
 				// Node was deleted. Don't use that pointer for anything
-				if (screen)
-					std::cout << "No solution found! (Probably timed out) Moving on to the next node." << std::endl << std::endl;
+                spdlog::info("No solution found! (Probably timed out) Moving on to the next node.");
 				allNodes_table.remove(curr);
 				continue;
 			}
 			if (reinsert(curr)) {
-				if (screen)
-					std::cout << "Pushing #" << curr->time_generated <<  " back into OPEN with updated cost f= " <<
-					    curr->g_val << "+" << curr->h_val << " and #conflicts=" << curr->num_of_conflicts << std::endl;
+                spdlog::info("Pushing #{} back into OPEN with updated cost f= {}+{} and #conflicts={}",
+					    curr->time_generated, curr->g_val, curr->h_val, curr->num_of_conflicts);
 				continue;
 			}
 			else {
-				if (screen)
-					std::cout << "Continuing to work on #" << curr->time_generated << std::endl;
+                spdlog::info("Continuing to work on #{}", curr->time_generated);
 			}
 		}
 		if (HL_heuristic == highlevel_heuristic::NONE) // No heuristics
@@ -3115,8 +3098,12 @@ bool ICBSSearch::runICBSSearch()
             classifyConflicts(*curr, cat);  // classify conflicts
             curr->conflict = getHighestPriorityConflict(*curr);  // choose one to work on
 
-			if (screen == 1)
-				printConflicts(*curr);
+            if (spdlog::default_logger()->level() < spdlog::level::warn)
+            {
+                ostringstream msg;
+                printConflicts(msg, *curr);
+                spdlog::info(msg.str());
+            }
 		}
 		else if (curr->conflict == nullptr) // CBSH, and h value has not been computed yet
 		{
@@ -3176,25 +3163,26 @@ bool ICBSSearch::runICBSSearch()
                     }
                 }
 
-                if (screen == 1) {
-                    std::cout << std::endl << "****** Computed h for #" << curr->time_generated <<
+                if (spdlog::default_logger()->level() <= spdlog::level::info) {
+                    ostringstream msg;
+                    msg << "****** Computed h for #" << curr->time_generated <<
                               " with f=" << curr->g_val << "+" << curr->h_val << " (";
                     for (int i = 0; i < num_of_agents; i++)
-                        std::cout << paths[i]->size() - 1 << ", ";
-                    std::cout << ") and #conflicts=" << curr->num_of_conflicts << std::endl;
-                    printConflicts(*curr);
+                        msg << paths[i]->size() - 1 << ", ";
+                    msg << ") and #conflicts=" << curr->num_of_conflicts << std::endl;
+                    printConflicts(msg, *curr);
+                    spdlog::info(msg.str());
                 }
 
                 if (reinsert(curr)) {
-                    if (screen == 1)
-                        std::cout << "Re-inserted #" << curr->time_generated << " into OPEN with higher h!"
-                                  << std::endl;
+                    spdlog::info("Re-inserted #{} into OPEN with higher h!", curr->time_generated);
                     continue;
                 }
             }
             else {
-                if (screen == 1) {
-                    std::cout << std::endl << "****** Same node #" << curr->time_generated <<
+                if (spdlog::default_logger()->level() <= spdlog::level::info) {
+                    ostringstream msg;
+                    msg << "****** Same node #" << curr->time_generated <<
                               " with f=" << curr->g_val << "+" << curr->h_val << " (";
                     for (int i = 0; i < num_of_agents; i++)
                         std::cout << paths[i]->size() - 1 << ", ";
@@ -3218,14 +3206,15 @@ bool ICBSSearch::runICBSSearch()
 		HL_num_expanded++;
 		curr->time_expanded = HL_num_expanded;
 
-		if (screen == 1)
-		{
-			std::cout << std::endl << "****** Expanding #" << curr->time_generated
-				<< " with f= " << curr->g_val <<	 "+" << curr->h_val << " (";
+        if (spdlog::default_logger()->level() <= spdlog::level::info) {
+            ostringstream msg;
+			msg << "****** Expanding #" << curr->time_generated
+				<< " with f= " << curr->g_val << "+" << curr->h_val << " (";
 			for (int i = 0; i < num_of_agents; i++)
-				std::cout << paths[i]->size() - 1 << ", ";
-			std::cout << ")" << std::endl;
-			std::cout << "Chosen conflict " << (*curr->conflict) << std::endl;
+				msg << paths[i]->size() - 1 << ", ";
+			msg << ")";
+            spdlog::info(msg.str());
+            spdlog::info("Chosen conflict {}", *curr->conflict);
 		}
 
 		if (split == split_strategy::DISJOINT3)
@@ -3267,18 +3256,15 @@ bool ICBSSearch::runICBSSearch()
 			vector<Path*> temp(paths);
 			n1->all_paths = &paths;
 			auto [child1, continue_to_next_child1] = generateChild(n1); // plan paths for n1
-			if (screen == 1) {
-				if (child1 != nullptr) {
-					std::cout << "Generated left child #" << n1->time_generated <<
-							     " with f= " << n1->g_val << "+" << n1->h_val <<
-							     " and " << n1->num_of_conflicts << " conflicts " << std::endl;
-				} else if (continue_to_next_child1) {
-					std::cout << "No feasible solution for left child! " << std::endl;
-				}
-				if (!continue_to_next_child1) {
-                    std::cout << "Left child found a bypass - adopting its new paths without splitting" << std::endl;
-				}
-			}
+            if (child1 != nullptr) {
+                spdlog::info("Generated left child #{} with f= {}+{} and {} conflicts",
+                             n1->time_generated, n1->g_val, n1->h_val, n1->num_of_conflicts);
+            } else if (continue_to_next_child1) {
+                spdlog::info("No feasible solution for left child!");
+            }
+            if (!continue_to_next_child1) {
+                spdlog::info("Left child found a bypass - adopting its new paths without splitting");
+            }
 			if (child1 != nullptr && continue_to_next_child1)  // Might have been deleted. FIXME: bad design.
 			    n1->all_paths = nullptr;
 
@@ -3290,18 +3276,14 @@ bool ICBSSearch::runICBSSearch()
                 n2->all_paths = &paths;
                 auto [child2, continue_to_next_child2] = generateChild(n2); // plan paths for n2
 
-                if (screen == 1) {
-                    if (child2 != nullptr) {
-                        std::cout << "Generated right child #" << n2->time_generated <<
-                                  " with f= " << n2->g_val << "+" << n2->h_val <<
-                                  " and " << n2->num_of_conflicts << " conflicts " << std::endl;
-                    } else if (continue_to_next_child2) {
-                        std::cout << "No feasible solution for right child! " << std::endl;
-                    }
-                    if (!continue_to_next_child2) {
-                        std::cout << "Right child found a bypass - adopting its new paths without splitting"
-                                  << std::endl;
-                    }
+                if (child2 != nullptr) {
+                    spdlog::info("Generated right child #{} with f= {}+{} and {} conflicts",
+                                 n2->time_generated, n2->g_val, n2->h_val, n2->num_of_conflicts);
+                } else if (continue_to_next_child2) {
+                    spdlog::info("No feasible solution for right child!");
+                }
+                if (!continue_to_next_child2) {
+                    spdlog::info("Right child found a bypass - adopting its new paths without splitting");
                 }
                 if (child2 != nullptr && continue_to_next_child2)
                     n2->all_paths = nullptr;
@@ -3333,31 +3315,35 @@ bool ICBSSearch::runICBSSearch()
                 min_f_val = open_head->f_val;
                 double focal_list_threshold_candidate = min_f_val * focal_w;
                 if (focal_list_threshold_candidate > focal_list_threshold) {
-                    if (screen == 1)
-                        cout << "  Note -- FOCAL UPDATE!! from |FOCAL|=" << focal_list.size()
-                             << " with |OPEN|=" << open_list.size() << " to |FOCAL|=";
+                    auto old_focal_list_size = focal_list.size();
+                    auto old_open_list_size = open_list.size();
                     updateFocalList(focal_list_threshold, focal_list_threshold_candidate, focal_w);
                     focal_list_threshold = focal_list_threshold_candidate;
-                    if (screen == 1)
-                        cout << focal_list.size() << endl;
+                    spdlog::info("FOCAL update from |FOCAL|={} with |OPEN|={} to |FOCAL|={}",
+                                  old_focal_list_size, old_open_list_size, focal_list.size());
                 }
             }
-            if (screen == 1)
-                cout << " ; (after) " << focal_list_threshold << endl;
+            spdlog::info("New FOCAL threshold = {}", focal_list_threshold);
 
             curr->all_paths = nullptr;
         }
 		else {
 		    curr->conflict = nullptr;  // It was resolved. Choose a new one.
 		}
-//        cerr << "prev node set to #" << curr->time_generated << endl;
     }  // end of while loop
 
 	runtime = std::clock() - start;
 	wall_runtime = std::chrono::system_clock::now() - wall_start;
-	highLevelTime = runtime - lowLevelTime - hl_node_verification_runtime - hlHeuristicTime - up_and_down_runtime - cat_runtime - highLevelMddBuildingTime;
-	wall_highLevelTime = wall_runtime - wall_lowLevelTime - wall_hl_node_verification_runtime - wall_hlHeuristicTime - wall_up_and_down_runtime - wall_cat_runtime - wall_mddTime;
-	//printPaths(paths);  // TODO: enable suppressing
+	highLevelTime = runtime - lowLevelTime - hl_node_verification_runtime - hlHeuristicTime - up_and_down_runtime
+                    - cat_runtime - highLevelMddBuildingTime;
+	wall_highLevelTime = wall_runtime - wall_lowLevelTime - wall_hl_node_verification_runtime - wall_hlHeuristicTime
+                         - wall_up_and_down_runtime - wall_cat_runtime - wall_mddTime;
+	if (spdlog::default_logger()->level() <= spdlog::level::info)
+    {
+	    ostringstream msg;
+        printPaths(msg, paths);
+        spdlog::info(msg.str());
+    }
 	return solution_found;
 }
 
@@ -3373,14 +3359,13 @@ void ICBSSearch::update_cat_and_lpas(ICBSNode *prev_node, ICBSNode *curr,
 		findShortestPathFromPrevNodeToCurr(curr, prev_node,
 										   steps_up_from_prev_node_to_lowest_common_ancestor,
 										   steps_down_from_lowest_common_ancestor_to_curr_node);  // TODO: Optimize using the bitfields!
-		if (screen)
-		    std::cout << std::endl << "Moving from #" << prev_node->time_generated << " at depth " << prev_node->depth <<
-		        " to #" << curr->time_generated << " at depth " << curr->depth << " in " <<
-		        steps_up_from_prev_node_to_lowest_common_ancestor.size() << " steps up and " <<
-		        steps_down_from_lowest_common_ancestor_to_curr_node.size() << " steps down:" << std::endl;
+        spdlog::info("Moving from #{} at depth {} to #{} at depth {} in {} steps up and {} steps down:",
+		        prev_node->time_generated, prev_node->depth, curr->time_generated, curr->depth,
+		        steps_up_from_prev_node_to_lowest_common_ancestor.size(),
+		        steps_down_from_lowest_common_ancestor_to_curr_node.size());
 
-		up_and_down_runtime += std::clock() - up_and_down_start;
-		wall_up_and_down_runtime += std::chrono::system_clock::now() - wall_up_and_down_start;  // Don't over-count - the CAT time is counted separately
+		lca_jumping_runtime += std::clock() - up_and_down_start;
+		wall_lca_jumping_runtime += std::chrono::system_clock::now() - wall_up_and_down_start;  // Don't over-count - the CAT time is counted separately
 		// Prepare the CAT
 
 		// for every step up from prev_node to curr (might be empty):
@@ -3439,8 +3424,7 @@ void ICBSSearch::update_cat_and_lpas(ICBSNode *prev_node, ICBSNode *curr,
 		for (auto node : steps_up_from_prev_node_to_lowest_common_ancestor) {
 			for (int j = 0; j < node->negative_constraints.size(); ++j) {
 				for (const auto& constraint : node->negative_constraints[j]) {
-					if (screen)
-						std::cout << "Removing constraint " << constraint << " from agent " << j << std::endl;
+					spdlog::debug("Removing constraint {} from agent {}", constraint, j);
                     LL_num_generated += node->pop_lpa_constraint(j, constraint, cat);
 				}
 			}
@@ -3449,18 +3433,15 @@ void ICBSSearch::update_cat_and_lpas(ICBSNode *prev_node, ICBSNode *curr,
 		for (auto node : steps_down_from_lowest_common_ancestor_to_curr_node) {
 			for (int j = 0; j < node->negative_constraints.size(); ++j) {
 				for (const auto& constraint : node->negative_constraints[j]) {
-					if (screen)
-						std::cout << "Adding constraint " << constraint << " to agent " << j << std::endl;
+					spdlog::debug("Adding constraint {} to agent {}", constraint, j);
                     LL_num_generated += node->add_lpa_constraint(j, constraint, cat, true);
 				}
 			}
 			// TODO: Handle positive constraints
 		}
-        if (screen)
-            std::cout << std::endl;
 
-        up_and_down_runtime += std::clock() - up_and_down_start;
-        wall_up_and_down_runtime += std::chrono::system_clock::now() - wall_up_and_down_start;
+        lca_jumping_runtime += std::clock() - up_and_down_start;
+        wall_lca_jumping_runtime += std::chrono::system_clock::now() - wall_up_and_down_start;
 #endif
 
 		// all that work just to get to the node's starting state
@@ -3477,15 +3458,15 @@ bool ICBSSearch::runIterativeDeepeningICBSSearch()
 {
 	if (HL_heuristic != highlevel_heuristic::NONE)
 #ifndef LPA
-		std::cout << "ID-CBSH(" << focal_w << "): " << std::endl;
+        spdlog::info("ID-CBSH({}):", focal_w);
 #else
-		std::cout << "ID-CBSH/LPA*: " << std::endl;
+		spdlog::info("ID-CBSH/LPA*:");
 #endif
 	else
 #ifndef LPA
-		std::cout << "ID-ICBS(" << focal_w << "): " << std::endl;
+        spdlog::info("ID-ICBS({}):", focal_w);
 #else
-		std::cout << "ID-ICBS/LPA*: " << std::endl;
+        spdlog::info("ID-ICBS/LPA*:");
 #endif
 	// set timer
 	start = std::clock() - runtime;  // Count the time spent in the constructor
@@ -3503,35 +3484,39 @@ bool ICBSSearch::runIterativeDeepeningICBSSearch()
 	// Compute the root node's h value, to be used for setting the first iteration's threshold:
 	if (HL_heuristic != highlevel_heuristic::NONE) {
 		root_node->h_val = computeHeuristic(*root_node);
-		if (screen == 1) {
-			std::cout << std::endl << "****** Computed h for #" << root_node->time_generated
-					  << " with f= " << root_node->g_val << "+" << root_node->h_val << " (";
+        if (spdlog::default_logger()->level() <= spdlog::level::info) {
+            ostringstream msg;
+			msg << "****** Computed h for #" << root_node->time_generated <<
+				   " with f= " << root_node->g_val << "+" << root_node->h_val << " (";
 			for (int i = 0; i < num_of_agents; i++)
-				std::cout << (*root_node->all_paths)[i]->size() - 1 << ", ";
-			std::cout << ") and #conflicts = " << root_node->num_of_conflicts << std::endl;
+				msg << (*root_node->all_paths)[i]->size() - 1 << ", ";
+			msg << ") and #conflicts = " << root_node->num_of_conflicts;
+			spdlog::info(msg.str());
 		}
 	}
 	else
 		root_node->h_val = 0;
-	if (screen == 1) {
-		printConflicts(*root_node);
+    if (spdlog::default_logger()->level() <= spdlog::level::info) {
+        ostringstream msg;
+		printConflicts(msg, *root_node);
+        spdlog::info(msg.str());
 	}
 	root_node->f_val = root_node->g_val + root_node->h_val;
 
 	// Set the first threshold
 	int threshold = root_node->f_val;
 
+	auto logger = spdlog::get("ID");
+
 	while (true)
 	{
 		if (std::clock() - start > time_limit * CLOCKS_PER_SEC)  // timeout
 		{
-            cerr << "Timed out in IDCBS high level" << endl;
+            spdlog::warn("Timed out in IDCBS high level");
 			break;
 		}
 
-		if (screen)  // TODO: Use a high glog instead
-			std::cout << "Threshold: " << threshold << std::endl;
-		int start_expanded = HL_num_expanded;
+        logger->info("IDCBS Threshold: {}", threshold);
 		root_node->time_generated = 1;
 		HL_num_expanded_before_this_iteration = HL_num_expanded;
 		HL_num_generated_before_this_iteration = HL_num_generated;
@@ -3542,32 +3527,33 @@ bool ICBSSearch::runIterativeDeepeningICBSSearch()
 		if (solved) {
 			break;
 		}
-		if (screen)  // TODO: Use a high glog instead
-			std::cout << "Finished threshold " << threshold << ". Expanded " << HL_num_expanded - start_expanded <<
-					  " nodes in " << ((float) (std::clock() - start)) / CLOCKS_PER_SEC << " seconds." << std::endl;
+        logger->info("Finished IDCBS threshold {}. Expanded {} nodes and generated {} nodes in {} seconds.",
+					  threshold, HL_num_expanded - HL_num_expanded_before_this_iteration,
+                     HL_num_generated - HL_num_generated_before_this_iteration,
+					  ((float) (std::clock() - start)) / CLOCKS_PER_SEC);
 		if (threshold == next_threshold) { // Unsolvable instance?
-			std::cout << "Next threshold not found! Unsolvable??" << std::endl;
+            logger->warn("Next threshold not found! Unsolvable??");
 			break;
 		}
 
-		if (screen) {
+        if (spdlog::default_logger()->level() < spdlog::level::warn) {
 			for (const auto &agent_neg_constraints: root_node->negative_constraints) {
 				if (agent_neg_constraints.size() != 0) {
-					std::cout << "IDCBS root has negative constraints at end of threshold " << threshold << "!" << std::endl;
+					spdlog::critical("IDCBS root has negative constraints at end of threshold {}", threshold);
 					std::abort();
 				}
 			}
             for (const auto &agent_pos_constraints: root_node->positive_constraints) {
                 if (agent_pos_constraints.size() != 0) {
-                    std::cout << "IDCBS root has negative constraints at end of threshold " << threshold << "!" << std::endl;
+                    spdlog::critical("IDCBS root has negative constraints at end of threshold {}", threshold);
                     std::abort();
                 }
             }
             for (auto lpa: root_node->lpas) {
                 for (const auto &dyn_constraints_for_timestep : lpa->dcm.dyn_constraints_) {
                     if (dyn_constraints_for_timestep.size() != 0) {
-                        std::cout << "LPA* for agent " << lpa->agent_id << " has constraints at end of threshold "
-                                  << threshold << "!" << std::endl;
+                        spdlog::critical("LPA* for agent {} has constraints at end of threshold {}",
+                                         lpa->agent_id, threshold);
                         std::abort();
                     }
                 }
@@ -3581,7 +3567,12 @@ bool ICBSSearch::runIterativeDeepeningICBSSearch()
 	wall_runtime = std::chrono::system_clock::now() - wall_start;
 	highLevelTime = runtime - lowLevelTime - hl_node_verification_runtime - hlHeuristicTime - up_and_down_runtime - cat_runtime - highLevelMddBuildingTime;
 	wall_highLevelTime = wall_runtime - wall_lowLevelTime - wall_hl_node_verification_runtime - wall_hlHeuristicTime - wall_up_and_down_runtime - wall_cat_runtime - wall_mddTime;
-	printPaths(paths);
+    if (spdlog::default_logger()->level() <= spdlog::level::info)
+    {
+        ostringstream msg;
+        printPaths(msg, paths);
+        spdlog::info(msg.str());
+    }
 	return solution_found;
 }
 
@@ -3590,7 +3581,7 @@ std::tuple<bool, int> ICBSSearch::do_idcbsh_iteration(ICBSNode *curr,
 													  ConflictAvoidanceTable &cat,
 													  int threshold, int next_threshold, clock_t end_by, bool after_bypass /*= false*/) {
 	if (std::clock() > end_by) {  // timeout (no need to unconstrain)
-		cerr << "Timed out in idcbsh iteration!" << endl;
+		spdlog::warn("Timed out in idcbsh iteration!");
 		return make_tuple(false, next_threshold);
 	}
 
@@ -3601,8 +3592,12 @@ std::tuple<bool, int> ICBSSearch::do_idcbsh_iteration(ICBSNode *curr,
 		classifyConflicts(*curr, &cat);  // classify conflicts
 		curr->conflict = getHighestPriorityConflict(*curr);  // choose one to work on
 
-		if (screen == 1)
-			printConflicts(*curr);
+        if (spdlog::default_logger()->level() < spdlog::level::warn)
+        {
+            ostringstream msg;
+            printConflicts(msg, *curr);
+            spdlog::info(msg.str());
+        }
 	} else if (curr->conflict == nullptr) // CBSH, and h value has not been computed yet
 	{
 		classifyConflicts(*curr, &cat);  // classify conflicts
@@ -3658,25 +3653,25 @@ std::tuple<bool, int> ICBSSearch::do_idcbsh_iteration(ICBSNode *curr,
             ++num_delta_f_2_or_more;
         }
 
-		if (screen == 1) {
+        if (spdlog::default_logger()->level() <= spdlog::level::info) {
+            ostringstream msg;
 			if (!after_bypass) {
-			    std::cout << std::endl << "****** Computed h for #" << curr->time_generated
-			              << " with f= " << curr->g_val << "+" << curr->h_val << " (";
+			    msg << "****** Computed h for #" << curr->time_generated <<
+			           " with f= " << curr->g_val << "+" << curr->h_val << " (";
 			}
 			else {
-			    std::cout << std::endl << "****** Same node #" << curr->time_generated
+			    msg << std::endl << "****** Same node #" << curr->time_generated
 			              << " with f= " << curr->g_val << "+" << curr->h_val << " (";
 			}
 			for (int i = 0; i < num_of_agents; i++)
-			    std::cout << paths[i]->size() - 1 << ", ";
-			std::cout << ") and #conflicts = " << curr->num_of_conflicts << std::endl;
-
-			printConflicts(*curr);
+			    msg << paths[i]->size() - 1 << ", ";
+			msg << ") and #conflicts = " << curr->num_of_conflicts << std::endl;
+            printConflicts(msg, *curr);
+            spdlog::info(msg.str());
 		}
 
 		if (curr->f_val > threshold * focal_w) {
-			if (screen)
-				std::cout << "F value " << curr->f_val << " > " << threshold << " threshold * " << focal_w << " focal_w. Backtracking." << std::endl;
+			spdlog::info("F value {} > {} threshold * {} focal_w. Backtracking.", curr->f_val, threshold, focal_w);
 
 			next_threshold = min(next_threshold, curr->f_val);
 			return make_tuple(false, next_threshold);  // The parent will unconstrain
@@ -3696,14 +3691,16 @@ std::tuple<bool, int> ICBSSearch::do_idcbsh_iteration(ICBSNode *curr,
 	HL_num_expanded++;
 	curr->time_expanded = HL_num_expanded - HL_num_expanded_before_this_iteration;
 
-	if (screen == 1)
+    if (spdlog::default_logger()->level() <= spdlog::level::info)
 	{
-		std::cout << std::endl << "****** Expanding #" << curr->time_generated
+        ostringstream msg;
+		msg << std::endl << "****** Expanding #" << curr->time_generated
 				  << " with f= " << curr->g_val <<	 "+" << curr->h_val << " (";
 		for (int i = 0; i < num_of_agents; i++)
-			std::cout << paths[i]->size() - 1 << ", ";
-		std::cout << ")" << std::endl;
-		std::cout << "Chosen conflict: " << *curr->conflict << std::endl;
+			msg << paths[i]->size() - 1 << ", ";
+		msg << ")";
+		spdlog::info(msg.str());
+        spdlog::info("Chosen conflict: {}", *curr->conflict);
 	}
 
 	const auto& [agent1_id, agent2_id, location1, location2, timestep] = *curr->conflict;
@@ -3744,7 +3741,7 @@ std::tuple<bool, int> ICBSSearch::do_idcbsh_iteration(ICBSNode *curr,
 
 	if (replan1_success) {
 		HL_num_generated++;
-		if (screen) {
+        if (spdlog::default_logger()->level() < spdlog::level::warn) {
 			// check the solution
 			arePathsConsistentWithConstraints(paths, curr);
 		}
@@ -3768,10 +3765,8 @@ std::tuple<bool, int> ICBSSearch::do_idcbsh_iteration(ICBSNode *curr,
 		sum_num_conflicts += curr->num_of_conflicts;
 		++num_num_conflicts;
 
-		if (screen)
-		    std::cout << "Generated left child #" << curr->time_generated <<
-		              " with f= " << curr->g_val << "+" << curr->h_val <<
-		              " and " << curr->num_of_conflicts << " conflicts " << std::endl;
+		spdlog::info("Generated left child #{} with f= {}+{} and {} conflicts {}",
+		             curr->time_generated, curr->g_val, curr->h_val, curr->num_of_conflicts);
 
 		bool bypass = false;
 		if ((curr->g_val == orig_g_val) && (curr->num_of_conflicts < orig_num_conflicts)) {
@@ -3790,7 +3785,7 @@ std::tuple<bool, int> ICBSSearch::do_idcbsh_iteration(ICBSNode *curr,
 																	 // next_threshold we provided
 
 		if (std::clock() > end_by) {  // timeout (no need to unconstrain)
-			cerr << "Timed out in idcbsh iteration!" << endl;
+			spdlog::warn("Timed out in idcbsh iteration!");
 			return make_tuple(false, next_threshold);
 		}
 
@@ -3811,23 +3806,19 @@ std::tuple<bool, int> ICBSSearch::do_idcbsh_iteration(ICBSNode *curr,
 		if (curr->f_val > threshold * focal_w)  // The overall f was higher than the threshold
 			next_threshold = min(next_threshold, curr->f_val);
 
-		if (screen == 1) {
-			if (!constraint1_added)
-				std::cout << "The left child's cost would have been larger than the NEXT threshold " <<
-						  next_threshold << "." << std::endl;
-			else if (curr->f_val <= threshold * focal_w)
-				std::cout << "No solution for the left child! " << std::endl;
-			else
-				std::cout << "The left child's F value " << curr->f_val << " > " << threshold << " threshold * " << focal_w << " focal_w." << std::endl;
-		}
+        if (!constraint1_added)
+            spdlog::info("The left child's cost would have been larger than the NEXT threshold {}", next_threshold);
+        else if (curr->f_val <= threshold * focal_w)
+            spdlog::info("No solution for the left child!");
+        else
+            spdlog::info("The left child's F value {} > {} threshold * {} focal_w.", curr->f_val, threshold, focal_w);
 	}
 
 	// A goal was not found with a cost below the threshold in the left child
 	if (constraint1_added)
 		idcbsh_unconstrain(curr, cat, path_backup, orig_conflict, orig_makespan, orig_g_val, orig_h_val, orig_left_cost_will_increase, orig_right_cost_will_increase);
 
-	if (screen)
-		cout << "Moving to the right child of #" << curr->time_generated << endl;
+	spdlog::info("Moving to the right child of #{}", curr->time_generated);
 
 	curr->agent_id = agent2_id;
 	path_backup = *paths[agent2_id];
@@ -3844,7 +3835,7 @@ std::tuple<bool, int> ICBSSearch::do_idcbsh_iteration(ICBSNode *curr,
 
 	if (replan2_success) {
 		HL_num_generated++;
-		if (screen) {
+        if (spdlog::default_logger()->level() < spdlog::level::warn) {
 			// check the solution
 			arePathsConsistentWithConstraints(paths, curr);
 		}
@@ -3868,10 +3859,8 @@ std::tuple<bool, int> ICBSSearch::do_idcbsh_iteration(ICBSNode *curr,
         sum_num_conflicts += curr->num_of_conflicts;
         ++num_num_conflicts;
 
-		if (screen)
-		    std::cout << "Generated right child #" << curr->time_generated <<
-		              " with f= " << curr->g_val << "+" << curr->h_val <<
-		              " and " << curr->num_of_conflicts << " conflicts " << std::endl;
+		spdlog::info("Generated right child #{} with f= {}+{} and {} conflicts", curr->time_generated, curr->g_val,
+		              curr->h_val, curr->num_of_conflicts);
 
 		// No need to check for a bypass here - we already went down the left child, removing the last constraint won't help
 
@@ -3890,23 +3879,19 @@ std::tuple<bool, int> ICBSSearch::do_idcbsh_iteration(ICBSNode *curr,
 		}
 	} else {
 		// A path was not found for the constrained agent in the left child, or the overall g was higher than the threshold
-		if (screen == 1) {
-			if (!constraint2_added)
-				std::cout << "The right child's cost would have been larger than the NEXT threshold " <<
-				next_threshold << "." << std::endl;
-			else if (curr->f_val <= threshold * focal_w)
-				std::cout << "No solution for the right child! " << std::endl;
-			else
-				std::cout << "The right child's F value " << curr->f_val << " > " << threshold
-						  << " threshold * " << focal_w << " focal_w." << std::endl;
-		}
+        if (!constraint2_added)
+            spdlog::info("The right child's cost would have been larger than the NEXT threshold {}", next_threshold);
+        else if (curr->f_val <= threshold * focal_w)
+            spdlog::info("No solution for the right child!");
+        else
+            spdlog::info("The right child's F value {} > {} threshold * {} focal_w", curr->f_val, threshold, focal_w);
 	}
 	curr->agent_id = agent2_id;  // The recursive call may have changed it, and it needs to be restored before unconstrain is called
 	if (constraint2_added)
 		idcbsh_unconstrain(curr, cat, path_backup, orig_conflict, orig_makespan, orig_g_val, orig_h_val, orig_left_cost_will_increase, orig_right_cost_will_increase);
 	curr->agent_id = orig_agent_id;  // Just to be clean
-	if (screen)
-		cout << "Finished exploring the subtree under #" << curr->time_generated << " with f<=" << threshold << "* " << focal_w << " without finding a goal node." << endl;
+	spdlog::info("Finished exploring the subtree under #{} with f<={} * {} without finding a goal node",
+	             curr->time_generated, threshold, focal_w);
 	return make_tuple(false, next_threshold);
 }
 
@@ -3960,12 +3945,12 @@ tuple<bool, bool> ICBSSearch::idcbsh_add_constraint_and_replan(ICBSNode *node,
 
 	if (replan_success && (costMayIncrease == ICBSNode::WillCostIncrease::NO) && (node->g_val > oldG))
 	{
-		std::cerr << "Cost increased for non-cardinal agent " << node->agent_id << "!?!?!?!" << std::endl;
+		spdlog::error("Cost increased for non-cardinal agent {}!?!?!?!", node->agent_id);
 		std::abort();
 	}
 	if (replan_success && (costMayIncrease == ICBSNode::WillCostIncrease::YES) && (node->g_val == oldG))
 	{
-		std::cerr << "Cost did not increase for cardinal agent " << node->agent_id << "!?!?!?!" << std::endl;
+		spdlog::error("Cost did not increase for cardinal agent {}!?!?!?!", node->agent_id);
 		std::abort();
 	}
 
@@ -4044,9 +4029,9 @@ void ICBSSearch::idcbsh_unconstrain(ICBSNode *node, ConflictAvoidanceTable &cat,
 
 ICBSSearch::ICBSSearch(const MapLoader &ml, const AgentsLoader &al, double focal_w, split_strategy p,
                        highlevel_heuristic HL_h,
-                       int cutoffTime, int child_pref_budget, int max_child_pref_options, int screen,
+                       int cutoffTime, int child_pref_budget, int max_child_pref_options,
                        bool propagatePositiveCons, bool preferFCardinals, bool preferGoalConflicts) :
-	focal_w(focal_w), split(p), HL_heuristic(HL_h), screen(screen), solution_node(nullptr),
+	focal_w(focal_w), split(p), HL_heuristic(HL_h), solution_node(nullptr),
 	num_of_agents(al.num_of_agents),
 	time_limit(cutoffTime),
 	num_map_cols(ml.cols),
@@ -4100,7 +4085,7 @@ ICBSSearch::ICBSSearch(const MapLoader &ml, const AgentsLoader &al, double focal
         mvc_vars = mvc_model.addVars(lbs.data(), ubs_data, obj_coeffs.data(), types.data(), nullptr, num_of_agents);
     }
     catch (const GRBException& exception) {
-        cerr << exception.getMessage() << endl;
+        spdlog::critical(exception.getMessage());
         throw;
     }
 #endif
@@ -4124,7 +4109,7 @@ ICBSSearch::ICBSSearch(const MapLoader &ml, const AgentsLoader &al, double focal
             int ret = fread(htable, sizeof(htable[0]), ml.rows * ml.cols, htable_file);
             fclose(htable_file);
             if (ret != ml.rows * ml.cols) {
-                cerr << htable_filename << "'s contents are too short!" << endl;
+                spdlog::critical("{}'s contents are too short!", htable_filename);
                 abort();
             }
 		}
@@ -4196,8 +4181,7 @@ ICBSSearch::ICBSSearch(const MapLoader &ml, const AgentsLoader &al, double focal
 		LL_num_expanded += search_engines[i]->num_expanded;
 		LL_num_generated += search_engines[i]->num_generated;
 #else
-		if (screen)
-			cout << "Calling LPA* for the first time for agent " << i << endl;
+		spdlog::debug("Calling LPA* for the first time for agent {}", i);
 		auto generated_before = root_node->lpas[i]->allNodes_table.size();
 		bool success = root_node->lpas[i]->findPath(root_cat, -1, -1, start + time_limit * CLOCKS_PER_SEC);
 		LL_num_expanded += root_node->lpas[i]->num_expanded;
@@ -4208,7 +4192,7 @@ ICBSSearch::ICBSSearch(const MapLoader &ml, const AgentsLoader &al, double focal
 		wall_lowLevelTime += std::chrono::system_clock::now() - wall_ll_start;
 		if (!success)
 		{
-			cout << "NO SOLUTION EXISTS FOR AGENT " << i;
+			spdlog::error("NO solution exists for agent {} of the root node", i);
 			delete root_node;
 			exit(-1);
 		}
