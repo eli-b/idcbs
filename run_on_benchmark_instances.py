@@ -194,7 +194,7 @@ def job(general_cmd, num_agents_start, mem_limit, scen_file_name, output_queue, 
             elif e.returncode == 137:  # Killed by the cgroup's OOM killer
                 with lock:
                     print(time.strftime('%Y-%m-%dT%H:%M:%S: ') + cmd + ' finished')
-                output_queue.put('-2,' + '=NA(),' * 23 + f'{time.time() - start_time},=NA(),{mem_limit},same as above,/scen/{scen_file_name},{num_agents}\n')
+                output_queue.put('-2,' + '=NA(),' * 50 + f'{time.time() - start_time},=NA(),{mem_limit},same as above,/scen/{scen_file_name},{num_agents}\n')
                 break
             else:
                 raise
@@ -332,7 +332,7 @@ with pool:
                         break
                     elif e.returncode == 137:  # Killed by the cgroup's OOM killer
                         with open(output_file_path, 'a') as f:
-                            f.write('-2,' + '=NA(),' * 23 + f'{time.time() - start_time},=NA(),{mem_limit},same as above,/scen/{scen_file_name},{num_agents}\n')
+                            f.write('-2,' + '=NA(),' * 50 + f'{time.time() - start_time},=NA(),{mem_limit},same as above,/scen/{scen_file_name},{num_agents}\n')
                         break
                     else:
                         # 139 is SIGSEGV, BTW
