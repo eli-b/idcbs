@@ -53,9 +53,9 @@ class MDD
 public:
 	vector<list<MDDNode*>> levels;
 
-	bool buildMDD(const std::vector < std::unordered_map<int, ConstraintState > >& cons_table,
-		const pair<int, int> &start, const pair<int, int>&goal, int lookahead, const ICBSSingleAgentLLSearch & solver,
-        clock_t end_by);
+	bool buildMDD(const XytHolder<ConstraintState>& cons_table,
+                  const pair<int, int> &start, const pair<int, int>&goal, int lookahead, const ICBSSingleAgentLLSearch & solver,
+                  clock_t end_by);
 	bool updateMDD(const tuple<int, int, int> &constraint, int num_col);
 	MDDNode* find(int location, int level);
 	void deleteNode(MDDNode* node);

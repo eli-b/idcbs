@@ -51,7 +51,7 @@ class LPAStar {
   DynamicConstraintsManager dcm;
 
   heap_open_t open_list;
-  XytHolder<LPANode*> allNodes_table;
+  XytHolder<LPANode> allNodes_table;
 //  vector<set<LPANode*>> v_buckets;
 //  vector<vector<LPANode*>*> mddLevels;
     vector<int> mddLevelSizes;

@@ -76,22 +76,23 @@ int ICBSSingleAgentLLSearch::extractLastGoalTimestep(int goal_location, const ve
 // input: direction (into next_id) ; next_id (location at time next_timestep); next_timestep
 // cons[timestep] is a list of <loc1,loc2, bool> of (vertex/edge) constraints for that timestep. (loc2=-1 for vertex constraint).
 bool ICBSSingleAgentLLSearch::isConstrained(int direction, int next_id, int next_timestep,
-	const std::vector < std::unordered_map<int, ConstraintState > >& cons_table)  const 
+                                            const XytHolder<ConstraintState>& cons_table)  const
 {
 	if (my_map[next_id]) // obstacles
 		return true;
-	else if (next_timestep >= cons_table.size())
-		return false;
-	auto next_timestep_it = cons_table[next_timestep].find(next_id);
     int loc_id = next_id - moves_offset[direction];
-    auto source_timestep_it = cons_table[next_timestep - 1].find(loc_id);
+    auto [found_curr, state_curr] = cons_table.get(loc_id, next_timestep - 1);
+    if (found_curr && state_curr->vertex)
+        return true;
+    auto [found_next, state_next] = cons_table.get(next_id, next_timestep);
+    if (!found_next)
+        return false;
     // Check if there's a vertex constraint on next_id in the source and next timestep
-    if ((next_timestep_it != cons_table[next_timestep].end() && next_timestep_it->second.vertex) ||
-        (source_timestep_it != cons_table[next_timestep - 1].end() && source_timestep_it->second.vertex))
+    if (state_next->vertex)
         return true;
 
     // Check if there's an edge constraint on entering next_id in next_timestep
-	return next_timestep_it != cons_table[next_timestep].end() && next_timestep_it->second.edge[direction];
+	return state_next->edge[direction];
 }
 
 // find a path from location start.first at timestep start.second to location goal.first at timestep goal.second
@@ -102,9 +103,9 @@ bool ICBSSingleAgentLLSearch::isConstrained(int direction, int next_id, int next
 // that cannot reach the goal at the given timestep
 // This is used to re-plan a (sub-)path between two positive constraints.
 bool ICBSSingleAgentLLSearch::findPath(Path &path,
-	const std::vector < std::unordered_map<int, ConstraintState > >& cons_table,
-	ConflictAvoidanceTable& cat,
-	const pair<int, int> &start, const pair<int, int>&goal, lowlevel_heuristic h_type)
+                                       const XytHolder<ConstraintState>& cons_table,
+                                       ConflictAvoidanceTable& cat,
+                                       const pair<int, int> &start, const pair<int, int>&goal, lowlevel_heuristic h_type)
 {
 	num_expanded = 0;
 	num_generated = 0;
@@ -192,9 +193,9 @@ bool ICBSSingleAgentLLSearch::findPath(Path &path,
 // while minimizing conflicts with paths in cat and put it in the given <path> vector
 // return true if a path was found (and update path) or false if no path exists
 bool ICBSSingleAgentLLSearch::findShortestPath(Path &path,
-	const std::vector < std::unordered_map<int, ConstraintState > >& cons_table,
-	ConflictAvoidanceTable& cat,
-	const pair<int, int> &start, const pair<int, int>&goal, int earliestGoalTimestep, int lastGoalConsTime)
+                                               const XytHolder<ConstraintState>& cons_table,
+                                               ConflictAvoidanceTable& cat,
+                                               const pair<int, int> &start, const pair<int, int>&goal, int earliestGoalTimestep, int lastGoalConsTime)
 {
 	num_expanded = 0;
 	num_generated = 0;

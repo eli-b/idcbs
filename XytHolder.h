@@ -6,6 +6,8 @@
 #include <tuple>
 #include <exception>
 #include <iostream>
+#include <memory>  // for unique_ptr
+#include <vector>
 
 /// Stores T instances by location and time.
 /// Since every timestep is sparse (most locations at each timestep are unused),
@@ -13,40 +15,33 @@
 template <class T>
 class XytHolder {
 public:
-    XytHolder(int xy_size) : xy_size(xy_size) {
-        data = new std::list<std::tuple<int,T>>*[xy_size];
-        for (int i = 0; i < xy_size; ++i) {
-            data[i] = nullptr;
-        }
-    }
+    XytHolder(int xy_size) : data(xy_size, nullptr) {}
 
-    // Shallow copy
-    XytHolder(const XytHolder& other) {
-        xy_size = other.xy_size;
-        data = new std::list<std::tuple<int,T>>*[other.xy_size];
-        for (int i = 0; i < xy_size; ++i) {
-            data[i] = nullptr;
-        }
-        for (int i = 0; i < other.xy_size ; ++i) {
-            if (other.data[i] != nullptr) {
-                for (const auto& pair: *other.data[i]) {
-                    set(i, pair[0], pair[1]);
-                }
-            }
-        }
-    }
+//    // FIXME: Must do deep copy - can't have unique_ptrs pointing to same data...
+//    XytHolder(const XytHolder<T>& other) : data(other.data.size(), nullptr) {
+//        for (int i = 0; i < other.data.size() ; ++i) {
+//            if (other.data[i] != nullptr) {
+//                for (const auto& pair: *other.data[i]) {
+//                    auto& [time, item] = pair;
+//                    set(i, time, item.get());
+//                }
+//            }
+//        }
+//    }
+
+    XytHolder(XytHolder<T>&& other) : count(other.count), data(std::move(other.data)) {}  // Move constructor
 
     // TODO: Implement an iterator and begin and end methods:
 
     // Returns <true,requested item> or <false,nullptr> when it's missing
-    std::tuple<bool, T> get(int location_id, int t) {  // FIXME: Yes, passing by copy
+    std::tuple<bool, T*> get(int location_id, int t) const {
         // Linear lookup
         if (data[location_id] == nullptr)
             return std::make_tuple(false, nullptr);
         for (auto it = data[location_id]->begin(); it != data[location_id]->end() ; ++it)  {
-            auto [it_t, it_n] = *it;
+            auto& [it_t, it_n] = *it;
             if (it_t == t) {
-                return std::make_tuple(true, it_n);
+                return std::make_tuple(true, it_n.get());
             }
             else if (it_t > t) {
                 return std::make_tuple(false, nullptr);
@@ -55,48 +50,41 @@ public:
         return std::make_tuple(false, nullptr);
     }
 
-    void set(int location_id, int t, T value) {  // FIXME: Yes, passing by copy
+    void set(int location_id, int t, T* value) {
         ++count;
         // Linear insertion
         if (data[location_id] == nullptr)
-            data[location_id] = new std::list<std::tuple<int,T>>();
+            data[location_id] = new std::list<std::tuple<int,std::unique_ptr<T>>>();
         for (auto it = data[location_id]->begin(); it != data[location_id]->end() ; ++it)  {
-            auto [it_t, it_n] = *it;
+            auto& [it_t, it_n] = *it;
             if (it_t == t) {
                 std::cout << "Unexpected re-insertion of item to XytHolder!" << std::endl;
                 std::abort();
             }
             else if (it_t > t) {
-                data[location_id]->insert(it, std::make_tuple(t, value));  // inserts before the iterator
+                data[location_id]->emplace(it, t, value);  // inserts before the iterator
                 return;
             }
         }
-        data[location_id]->push_back(std::make_tuple(t, value));
+        data[location_id]->emplace_back(t, value);
     }
 
     size_t size() { return count; }
 
     ~XytHolder() {
-        for (int i = 0; i < xy_size; ++i) {
-            delete data[i];
-        }
-        delete[] data;
+        clear();
     }
 
     void clear() {
-        for (int i = 0; i < xy_size; ++i) {
+        for (int i = 0; i < data.size(); ++i) {
             delete data[i];
-        }
-        delete[] data;
-        data = new std::list<std::tuple<int,T>>[xy_size];
-        for (int i = 0; i < xy_size; ++i) {
             data[i] = nullptr;
         }
+        count = 0;
     }
 
-    int xy_size;
     int count = 0;
-    std::list<std::tuple<int,T>>** data;
+    std::vector<std::list<std::tuple<int,std::unique_ptr<T>>>*> data;  // nullptrs are smaller than empty std::lists
 };
 
 

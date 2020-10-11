@@ -2,6 +2,7 @@
 #include "ICBSSingleAgentLLNode.h"
 #include "map_loader.h"
 #include "conflict_avoidance_table.h"
+#include "XytHolder.h"
 
 class ICBSSingleAgentLLSearch
 {
@@ -38,18 +39,18 @@ public:
 
 	 // path finding
 	bool findPath(Path &path,
-		const std::vector < std::unordered_map<int, ConstraintState > >& cons_table, 
-		ConflictAvoidanceTable& cat,
-		const pair<int, int> &start, const pair<int, int>&goal, lowlevel_heuristic h_type);
+                  const XytHolder<ConstraintState>& cons_table,
+                  ConflictAvoidanceTable& cat,
+                  const pair<int, int> &start, const pair<int, int>&goal, lowlevel_heuristic h_type);
 	bool findShortestPath(Path &path,
-		const std::vector < std::unordered_map<int, ConstraintState > >& cons_table,
-		ConflictAvoidanceTable& cat,
-		const pair<int, int> &start, const pair<int, int>&goal, int earliestGoalTimestep, int lastGoalConsTime);
+                          const XytHolder<ConstraintState>& cons_table,
+                          ConflictAvoidanceTable& cat,
+                          const pair<int, int> &start, const pair<int, int>&goal, int earliestGoalTimestep, int lastGoalConsTime);
 	
 	// tools
 	int extractLastGoalTimestep(int goal_location, const vector< list< tuple<int, int, bool> > >* cons);
 	bool isConstrained(int direction, int next_id, int next_timestep,
-		const std::vector < std::unordered_map<int, ConstraintState > >& cons_table)  const;
+                       const XytHolder<ConstraintState>& cons_table)  const;
 	void updatePath(const ICBSSingleAgentLLNode* goal, Path &path);
 	// A heuristic estimate of the difference between any two points,
 	// computed as MIN(|H_i(loc1) - H_i(loc2)|) for every normal heuristic to goal i that we have.

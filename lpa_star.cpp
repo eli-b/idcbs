@@ -352,11 +352,7 @@ inline LPANode* LPAStar::openlistPopHead() {
 
 // ----------------------------------------------------------------------------
 inline void LPAStar::releaseNodesMemory() {
-//  for (auto n : allNodes_table) {
-//    delete(n.second);  // n is std::pair<Key, Data*>
-//  }
-//  allNodes_table.clear();
-// TODO: Implement support for that in XytHolder
+  allNodes_table.clear();
 }
 // ----------------------------------------------------------------------------
 
@@ -586,7 +582,7 @@ actions_offset(other.actions_offset),
 dcm(other.dcm),
 min_goal_timestep(other.min_goal_timestep),
 agent_id(other.agent_id),
-allNodes_table(other.allNodes_table.xy_size)
+allNodes_table(other.allNodes_table.data.size())
 {
     search_iterations = 0;
     num_expanded = 0;
@@ -598,10 +594,10 @@ allNodes_table(other.allNodes_table.xy_size)
     //expandedHeatMap.push_back(vector<int>());
     // Create a deep copy of each node and store it in the new Hash table.
     // Map
-    for (int i = 0; i < allNodes_table.xy_size ; ++i) {
+    for (int i = 0; i < allNodes_table.data.size() ; ++i) {
         if (other.allNodes_table.data[i] == nullptr)
             continue;
-        for (auto [t, n]: *(other.allNodes_table.data[i])) {
+        for (auto& [t, n]: *(other.allNodes_table.data[i])) {
             auto copy = new LPANode(*n);
             allNodes_table.set(i, t, copy);
         }
@@ -615,10 +611,10 @@ allNodes_table(other.allNodes_table.xy_size)
     // Update the backpointers of all cloned versions.
     // (before this its bp_ is the original pointer, but we can use the state in it to
     // retrieve the new clone from the newly built hash table).
-    for (int i = 0; i < allNodes_table.xy_size ; ++i) {
+    for (int i = 0; i < allNodes_table.data.size() ; ++i) {
         if (allNodes_table.data[i] == nullptr)
             continue;
-        for (auto [t, n]: *(allNodes_table.data[i])) {
+        for (auto& [t, n]: *(allNodes_table.data[i])) {
             if (n->bp_ != nullptr) {
                 auto [found, bp] = allNodes_table.get(n->bp_->loc_id_, n->bp_->t_);
                 n->bp_ = bp;
@@ -651,7 +647,7 @@ void LPAStar::updateGoal() {
         return;
     auto open_list_top = open_list.top();
     auto open_list_top_key = open_list_top->getKey1();
-    for (LPANode *possible_goal : possible_goals) {
+    for (auto possible_goal : possible_goals) {
         if (possible_goal->t_ >= min_goal_timestep &&
             (((nodes_comparator(possible_goal, open_list_top) == false) && (possible_goal->v_ >= possible_goal->g_)) ||  // Goal is consistent or oveconsistent
               possible_goal->t_ >= open_list_top_key)  // Goal is (still) reachable (assuming all steps cost 1),

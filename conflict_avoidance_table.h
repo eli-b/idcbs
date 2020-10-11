@@ -1,7 +1,7 @@
 #pragma once
 
-#include "common.h"
-#include "map_loader.h"
+#include <unordered_map>
+#include "XytHolder.h"
 
 
 struct AvoidanceState
@@ -14,9 +14,10 @@ class ConflictAvoidanceTable {
 public:
     const int* actions_offset;
 
-    explicit ConflictAvoidanceTable(const int* actions_offset) : actions_offset(actions_offset) {}
+    explicit ConflictAvoidanceTable(const int* actions_offset, int map_size)
+     : actions_offset(actions_offset), toward_goal(map_size) {}
 
-    std::vector < std::unordered_map<int, AvoidanceState > > toward_goal;
+    XytHolder<AvoidanceState> toward_goal;  // maps location+time pairs to their avoidance state.
     std::unordered_map<int, int> at_goal;  // Maps locations to when agents reach them and never leave (because the location is their goal)
 
     virtual int num_conflicts_for_step(int curr_id, int next_id, int next_timestep) const;
@@ -28,7 +29,7 @@ public:
 
 class EmptyConflictAvoidanceTable : public ConflictAvoidanceTable {
 public:
-    explicit EmptyConflictAvoidanceTable() : ConflictAvoidanceTable(nullptr) {}
+    explicit EmptyConflictAvoidanceTable() : ConflictAvoidanceTable(nullptr, 0) {}
     int num_conflicts_for_step(int curr_id, int next_id, int next_timestep) const { return 0; }
     void add_action(int timestep, int from, int to) {}
     void remove_action(int timestep, int from, int to) {}

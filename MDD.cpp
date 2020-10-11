@@ -1,8 +1,8 @@
 #include "MDD.h"
 
 // Returns whether building was successful (false if it timed out)
-bool MDD::buildMDD(const std::vector < std::unordered_map<int, ConstraintState > >& cons_table,
-	const pair<int, int> &start, const pair<int, int>&goal, int lookahead, const ICBSSingleAgentLLSearch & solver, clock_t end_by)
+bool MDD::buildMDD(const XytHolder<ConstraintState>& cons_table,
+                   const pair<int, int> &start, const pair<int, int>&goal, int lookahead, const ICBSSingleAgentLLSearch & solver, clock_t end_by)
 {
 	int numOfLevels = goal.second - start.second + lookahead + 1;
 	int current_cost = goal.second - start.second;

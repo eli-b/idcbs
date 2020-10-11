@@ -444,17 +444,16 @@ void ICBSSearch::collectConstraints(ICBSNode* curr, std::list<pair<int, Constrai
 // build the constraint table for replanning agent <agent_id>,
 // and find the two closest landmarks for agent <agent_id> that have the new constraint at time step <newConstraintTimestep> between them.
 // TODO: Consider splitting into two functions
-// update cons_table: cons_table[time_step][location].vertex or .edge = true iff they're a negative constraint for the agent
+// update cons_table: cons_table[time_step, location].vertex or .edge = true iff they're a negative constraint for the agent
 // update start and goal: the two landmarks for the agent such that its path between them violates the newly posted constraint (at <newConstraintTimestep>)
 // return last goal constraint timestep - the time of the last constraint on an agent's goal
 int ICBSSearch::buildConstraintTable(ICBSNode* curr, int agent_id, int newConstraintTimestep,
-	std::vector < std::unordered_map<int, ConstraintState > >& cons_table,
-	pair<int,int>& start, pair<int,int>& goal)
+                                     XytHolder<ConstraintState>& cons_table,
+                                     pair<int,int>& start, pair<int,int>& goal)
 {
 	int lastGoalConsTimestep = -1;
 
 	// extract all constraints on agent_id
-//	list < Constraint > constraints_positive;
 	list < Constraint > constraints_negative;
 	while (curr != nullptr)
 	{
@@ -473,11 +472,11 @@ int ICBSSearch::buildConstraintTable(ICBSNode* curr, int agent_id, int newConstr
 
 					if (loc2 < 0) // vertex constraint
 					{
-						if (start.second < constraint_timestep && constraint_timestep < newConstraintTimestep)  // This landmark is between (start.second, timestep)
+						if (start.second < constraint_timestep && constraint_timestep < newConstraintTimestep)  // This landmark is between (start.second, newConstraintTimestep)
 						{ // update start
 							start.first = loc1;
 							start.second = constraint_timestep;
-						} else if (newConstraintTimestep <= constraint_timestep && constraint_timestep < goal.second)  // the landmark is between [timestep, goal.second)
+						} else if (newConstraintTimestep <= constraint_timestep && constraint_timestep < goal.second)  // the landmark is between [newConstraintTimestep, goal.second)
 						{ // update goal
 							goal.first = loc1;
 							goal.second = constraint_timestep;
@@ -485,11 +484,11 @@ int ICBSSearch::buildConstraintTable(ICBSNode* curr, int agent_id, int newConstr
 						}
 					} else // edge constraint, viewed as two landmarks on the from-vertex and the to-vertex
 					{
-						if (start.second < constraint_timestep && constraint_timestep < newConstraintTimestep)  // the second landmark is between (start.second, timestep)
+						if (start.second < constraint_timestep && constraint_timestep < newConstraintTimestep)  // the second landmark is between (start.second, newConstraintTimestep)
 						{ // update start
 							start.first = loc2;
 							start.second = constraint_timestep;
-						} else if (newConstraintTimestep <= constraint_timestep - 1 && constraint_timestep - 1 < goal.second)  // the first landmark is between [timestep, goal.second)
+						} else if (newConstraintTimestep <= constraint_timestep - 1 && constraint_timestep - 1 < goal.second)  // the first landmark is between [newConstraintTimestep, goal.second)
 						{ // update goal
 							goal.first = loc1;
 							goal.second = constraint_timestep - 1;
@@ -498,7 +497,7 @@ int ICBSSearch::buildConstraintTable(ICBSNode* curr, int agent_id, int newConstr
 //					constraints_positive.push_back(con);
 				}
 			}
-			else {  // for the other agents, it is equivalent to a negative constraint
+			else {  // for other agents, and specifically our agent, it is equivalent to a negative constraint
 				for (const auto& con: curr->positive_constraints[j]) {
 					const auto& [loc1, loc2, constraint_timestep, positive_constraint] = con;
 					if (loc1 == goal.first && loc2 < 0 && lastGoalConsTimestep < constraint_timestep) {
@@ -519,30 +518,66 @@ int ICBSSearch::buildConstraintTable(ICBSNode* curr, int agent_id, int newConstr
 		const auto& [loc1, loc2, constraint_timestep, positive_constraint] = conflict;
 		if (!positive_constraint)  // So it's a negative constraint on this agent specifically
 		{
-			if (loc2 < 0) // vertex constraint
-				cons_table[constraint_timestep][loc1].vertex = true;
+			if (loc2 < 0)  // vertex constraint
+			{
+			    auto [found, state] = cons_table.get(loc1, constraint_timestep);
+			    if (!found) {
+			        state = new ConstraintState;
+			        cons_table.set(loc1, constraint_timestep, state);
+			    }
+			    state->vertex = true;
+			}
 			else // edge constraint
 			{
 				for(int i = 0; i < MapLoader::valid_moves_t::WAIT_MOVE; i++)
 				{
 					if (loc2 - loc1 == moves_offset[i])
 					{
-						cons_table[constraint_timestep][loc2].edge[i] = true;
+						auto [found, state] = cons_table.get(loc2, constraint_timestep);
+						if (!found) {
+						    state = new ConstraintState();
+						    cons_table.set(loc2, constraint_timestep, state);
+						}
+						state->edge[i] = true;
 						break;
 					}
 				}
 			}
 		}
-		else if (loc2 < 0)  // positive vertex constraint for other agent
-			cons_table[constraint_timestep][loc1].vertex = true;
-		else  // positive edge constraint for other agent
+		else if (loc2 < 0)  // positive vertex constraint for another agent
 		{
-			cons_table[constraint_timestep - 1][loc1].vertex = true;
-			cons_table[constraint_timestep][loc2].vertex = true;
+			auto [found, state] = cons_table.get(loc1, constraint_timestep);
+			if (!found) {
+				state = new ConstraintState;
+				cons_table.set(loc1, constraint_timestep, state);
+			}
+			state->vertex = true;
+		}
+		else  // positive edge constraint for another agent
+		{
+			auto [found, state] = cons_table.get(loc1, constraint_timestep - 1);
+			if (!found) {
+				state = new ConstraintState;
+				cons_table.set(loc1, constraint_timestep - 1, state);
+			}
+			state->vertex = true;
+
+			auto [found2, state2] = cons_table.get(loc2, constraint_timestep);
+			if (!found) {
+				state2 = new ConstraintState;
+				cons_table.set(loc2, constraint_timestep, state2);
+			}
+			state2->vertex = true;
+
 			for (int i = 0; i < MapLoader::valid_moves_t::WAIT_MOVE; i++)
 			{
 				if (loc1 - loc2 == moves_offset[i]) {
-                    cons_table[constraint_timestep][loc1].edge[i] = true;
+                    auto [found_edge, state_edge] = cons_table.get(loc1, constraint_timestep);
+                    if (!found) {
+                        state_edge = new ConstraintState;
+                        cons_table.set(loc1, constraint_timestep, state_edge);
+                    }
+                    state->edge[i] = true;
                     break;
                 }
 			}
@@ -595,7 +630,7 @@ void ICBSSearch::addPathToConflictAvoidanceTable(Path &path, ConflictAvoidanceTa
             break;
     }
     cat.add_wait_at_goal(first_wait_at_goal_timestep, path.back().location);
-    for (size_t timestep = 1; timestep < path.size(); timestep++)
+    for (size_t timestep = 1; timestep < first_wait_at_goal_timestep; timestep++)
     {
         int to = path[timestep].location;
         int from = path[timestep - 1].location;
@@ -1507,7 +1542,7 @@ void ICBSSearch::disjoint_branch_on_agent(ICBSNode* parent, ICBSNode* child1, IC
 #ifndef LPA
 #else
     // build a conflict-avoidance table for the agent we'll constrain
-    ConflictAvoidanceTable cat(this->moves_offset);
+    ConflictAvoidanceTable cat(this->moves_offset, this->map_size);
     buildConflictAvoidanceTable(*parent, agent, cat);
     catp = &cat;
 #endif
@@ -1600,7 +1635,7 @@ void ICBSSearch::branch(ICBSNode* parent, ICBSNode* child1, ICBSNode* child2)
 #ifndef LPA
 #else
 		// build a conflict-avoidance table for the agent we'll constrain
-		ConflictAvoidanceTable cat(this->moves_offset);
+		ConflictAvoidanceTable cat(this->moves_offset, this->map_size);
 		buildConflictAvoidanceTable(*parent, agent1_id, cat);
 		catp = &cat;
 #endif
@@ -2102,10 +2137,10 @@ bool ICBSSearch::findPathForSingleAgent(ICBSNode *node, ConflictAvoidanceTable *
 	pair<int,int> start_location_and_time(search_engines[ag]->start_location, 0), goal_location_and_time(search_engines[ag]->goal_location, numeric_limits<int>::max());
 
 	// build constraint table
-	std::vector < std::unordered_map<int, ConstraintState > > cons_table(node->makespan + 1);
+	XytHolder<ConstraintState> cons_table(this->map_size);
 	int lastGoalConTimestep = buildConstraintTable(curr, ag, newConstraintTimestep, cons_table, start_location_and_time, goal_location_and_time);  // TODO: Skip if LPA and (start.second == 0 && goal.second == numeric_limits<int>::max() &&node->lpas[ag] != nullptr)
 
-	ConflictAvoidanceTable local_scope_cat(this->moves_offset);
+	ConflictAvoidanceTable local_scope_cat(this->moves_offset, this->map_size);
 	if (cat == nullptr) {
 		// build conflict-avoidance table
 		buildConflictAvoidanceTable(*node, ag, local_scope_cat);
@@ -3404,8 +3439,7 @@ void ICBSSearch::update_cat_and_lpas(ICBSNode *prev_node, ICBSNode *curr,
 		}
 		// Add the current node's paths to the CAT for each path we removed
 		for (auto agent_id : ids_of_agents_whose_paths_we_removed) {
-			addPathToConflictAvoidanceTable(*paths[agent_id], *cat, agent_id);  // if the curr->makespan + 1 > cat->size, need to increase its size first, and fill in goal WAITs for every agent
-																		        // that wasn't removed from the CAT along the new timesteps. Maybe implement a dedicated CAT structure instead?
+			addPathToConflictAvoidanceTable(*paths[agent_id], *cat, agent_id);
 		}
 		// The CAT is finally ready, now update the LPA*s
 
@@ -4040,7 +4074,7 @@ ICBSSearch::ICBSSearch(const MapLoader &ml, const AgentsLoader &al, double focal
 	search_engines(num_of_agents, nullptr),
 	paths(num_of_agents, nullptr),
 	child_pref_budget(child_pref_budget), max_child_pref_options(max_child_pref_options),
-	root_cat(ml.moves_offset),
+	root_cat(ml.moves_offset, ml.map_size()),
 	posConstraintsAlsoAddPosConstraintsOnMddNarrowLevelsLeadingToThem(propagatePositiveCons),
 	preferFCardinals(preferFCardinals),
 	preferGoalConflicts(preferGoalConflicts)

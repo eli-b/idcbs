@@ -14,6 +14,7 @@
 #include "heuristic_calculator.h"
 #include "agents_loader.h"
 #include "conflict_avoidance_table.h"
+#include "XytHolder.h"
 
 class ICBSSearch
 {
@@ -128,7 +129,7 @@ private:
 	typedef boost::heap::fibonacci_heap< ICBSNode*, boost::heap::compare<ICBSNode::secondary_compare_node> > heap_focal_t;
 	heap_open_t open_list;
 	heap_focal_t focal_list;
-	list<ICBSNode*> allNodes_table;
+	list<ICBSNode*> allNodes_table;  // Currently only used for cleaning up. TODO: Consider holding unique_ptrs.
 
 	// input
 	int map_size;
@@ -178,9 +179,9 @@ private:
                                 int ag, bool skipNewpaths = false);
     std::tuple<ICBSNode *, bool> generateChild(ICBSNode *child, ConflictAvoidanceTable *cat = nullptr);
 	bool finishPartialExpansion(ICBSNode *node, ConflictAvoidanceTable *cat);
-	void buildConflictAvoidanceTable(const ICBSNode &node, int exclude_agent, ConflictAvoidanceTable &cat);
 	int  buildConstraintTable(ICBSNode* curr, int agent_id, int newConstraintTimestep,
-		std::vector < std::unordered_map<int, ConstraintState > >& cons_table, pair<int, int>& start, pair<int, int>& goal);
+                              XytHolder<ConstraintState>& cons_table, pair<int, int>& start, pair<int, int>& goal);
+	void buildConflictAvoidanceTable(const ICBSNode &node, int exclude_agent, ConflictAvoidanceTable &cat);
 	void addPathToConflictAvoidanceTable(Path &path, ConflictAvoidanceTable &cat, int agent_id);
 	void removePathFromConflictAvoidanceTable(Path &path, ConflictAvoidanceTable &cat, int agent_id);
 	int countMddSingletons(vector<Path *> &paths, int agent_id, int conflict_timestep);
