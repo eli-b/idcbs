@@ -10,12 +10,13 @@ std::ostream& operator<<(std::ostream& os, const Constraint& constraint)
     if (loc2 == -1)
         os << "<(" << loc1 / GRID_COLS << "," << loc1 % GRID_COLS << "), " << timestep;
     else
-        os << "<(" << loc1 / GRID_COLS << "," << loc1 % GRID_COLS << "), (" << loc2 / GRID_COLS << "," << loc2 % GRID_COLS << "), " << timestep;
-	if (positive_constraint)
-		os << ", positive>";
-	else
-		os << ", negative>";
-	return os;
+        os << "<(" << loc1 / GRID_COLS << "," << loc1 % GRID_COLS << "), (" << loc2 / GRID_COLS << ","
+           << loc2 % GRID_COLS << "), " << timestep;
+    if (positive_constraint)
+        os << ", positive>";
+    else
+        os << ", negative>";
+    return os;
 }
 }
 
@@ -25,10 +26,11 @@ std::ostream& operator<<(std::ostream& os, const Conflict& conflict)
 {
     const auto& [agent1, agent2, loc1, loc2, timestep] = conflict;
     if (loc2 == -1)
-        os << "<" << agent1 << ", " << agent2 << ", (" << loc1 / GRID_COLS << "," << loc1 % GRID_COLS << "), " << timestep << ">";
+        os << "<" << agent1 << ", " << agent2 << ", (" << loc1 / GRID_COLS << "," << loc1 % GRID_COLS << "), "
+           << timestep << ">";
     else
         os << "<" << agent1 << ", " << agent2 << ", (" << loc1 / GRID_COLS << "," << loc1 % GRID_COLS << "), ("
            << loc2 / GRID_COLS << "," << loc2 % GRID_COLS << "), " << timestep << ">";
-	return os;
+    return os;
 }
 }

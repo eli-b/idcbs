@@ -170,8 +170,8 @@ AgentsLoader::AgentsLoader(string fname, const MapLoader &ml, int agentsNum = 0,
 				auto c_beg = agent_line_fields.begin();
 				c_beg++;  // The first field is the block number
 				c_beg++;  // The second field is the map file name
-				c_beg++;  // The third field is the number of map rows
-				c_beg++;  // The fourth field is the number of map columns
+				c_beg++;  // The third field is the number of map columns
+				c_beg++;  // The fourth field is the number of map rows
 
 				pair<int, int> curr_pair;
 				// read start [col,row] for agent i

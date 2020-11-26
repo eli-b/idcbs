@@ -103,7 +103,7 @@ public:
 	// statistics of solution quality
 	bool solution_found = false;
 	int solution_cost = -1;
-	int min_f_val;
+	int min_f_val;  // In OPEN
 	double focal_list_threshold;
 
 	// For debugging
