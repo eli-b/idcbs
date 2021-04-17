@@ -18,14 +18,17 @@ in_container = True
 in_multiprocessing_pool = True
 mem_limit = '8g'
 seed = 123
-use_heuristic = True
 focal_w = 1#.50
 child_pref_budget = 5
 max_child_pref_options = 20
 prefer_f_cardinal = False
-prefer_goal_conflicts = False
-skip_according_to_output_file = True
-num_processes = 16
+prefer_target_conflicts = True
+rect_in_wdg = True
+target_in_wdg = True
+bypass = 'g-bypass'
+corridor_reasoning = True
+num_processes = 20
+skip_according_to_output_file = True and num_processes == 1
 
 agents_dir = abspath('agents')
 maps_dir = abspath('maps')
@@ -92,7 +95,8 @@ output_file_path = join(output_dir, output_file_name)
 # executable_name = "IDCBSH_no_lpa_latest_conflict"
 # executable_name = "IDCBSH_lpa"
 # executable_name = "IDCBSH_lpa_not_latest_conflict"
-executable_name = "IDECBSH_lpa_with_lpmdd_and_path_repair"
+# executable_name = "IDECBSH_lpa_with_lpmdd_and_path_repair"
+executable_name = "da_version"
 executable_path = join('/lpa', executable_name)
 
 map_names = (
@@ -112,6 +116,7 @@ map_names = (
     'maze-128-128-2',
     'maze-128-128-10',
     'maze-32-32-2',
+    'maze-32-32-4',
     'room-32-32-4',
     'room-64-64-8',
     'room-64-64-16',
@@ -172,42 +177,83 @@ if exists(output_file_path) and skip_according_to_output_file:
 def job(general_cmd, num_agents_start, mem_limit, scen_file_name, output_queue, lock):
     import subprocess
     import time
-    for num_agents in range(num_agents_start, 2000):  # We stop on the first failure
-        tmp_path = f'XXX{num_agents}XXX{scen_file_name}XXX{hash(general_cmd)}.tmp'  # Can't use tempfile because its files are only readable and writable by the same UID
-        cmd = general_cmd % (num_agents, tmp_path)
+    import multiprocessing
+    import os
+    
+    worker_id = multiprocessing.current_process()._identity[0]  # Worker IDs are unique, even between pools. They start from 1 and are incremented globally.
+    num_cpus = multiprocessing.cpu_count()
+    cpu_id1 = (-2 * worker_id) % num_cpus  # Try to use higher-numbered cpus
+    cpu_id2 = (-2 * worker_id + 1) % num_cpus  # Try to use higher-numbered cpus
+    
+    for num_agents in range(num_agents_start, 10000, 2):  # We stop on the first failure
+        tmp_path1 = f'XXX{num_agents}XXX{scen_file_name}XXX{hash(general_cmd)}.tmp'  # Can't use tempfile because its files are only readable and writable by the same UID
+        tmp_path2 = f'XXX{num_agents + 1}XXX{scen_file_name}XXX{hash(general_cmd)}.tmp'  # Can't use tempfile because its files are only readable and writable by the same UID
+        cmd1 = general_cmd.format(cpu_id=cpu_id1, num_agents=num_agents, tmp_path=tmp_path1, write_header=1 if num_agents == num_agents_start else 0)
+        cmd2 = general_cmd.format(cpu_id=cpu_id2, num_agents=num_agents + 1, tmp_path=tmp_path2, write_header=1 if num_agents == num_agents_start else 0)
         try:
             with lock:
-                print(time.strftime('%Y-%m-%dT%H:%M:%S: ') + cmd)
+                print(time.strftime('%Y-%m-%dT%H:%M:%S: ') + cmd1)
+                print(time.strftime('%Y-%m-%dT%H:%M:%S: ') + cmd2)
             start_time = time.time()
-            subprocess.check_call(cmd, shell=True)
+            p1 = subprocess.Popen(cmd1, shell=True)
+            p2 = subprocess.Popen(cmd2, shell=True)
+            first_finisher_pid, first_finisher_status = os.wait()
+            first_finisher_wall_end_time = time.time()
+            second_finisher_pid, second_finisher_status = os.wait()
+            second_finisher_wall_end_time = time.time()
             with lock:
-                print(time.strftime('%Y-%m-%dT%H:%M:%S: ') + cmd + ' finished')
-            with open(tmp_path) as f:
-                output_queue.put(f.read())
+                print(time.strftime('%Y-%m-%dT%H:%M:%S: ') + cmd1 + ' finished')
+                print(time.strftime('%Y-%m-%dT%H:%M:%S: ') + cmd2 + ' finished')
+            if first_finisher_pid == p1.pid:
+                p1_status = first_finisher_status
+                p1_wall_end_time = first_finisher_wall_end_time
+                p2_status = second_finisher_status
+                p2_wall_end_time = second_finisher_wall_end_time
+            else:
+                p2_status = first_finisher_status
+                p2_wall_end_time = first_finisher_wall_end_time
+                p1_status = second_finisher_status
+                p1_wall_end_time = second_finisher_wall_end_time
+
+            if exists(tmp_path1):
+                with open(tmp_path1) as f:
+                    output_queue.put(f.read())
+                remove(tmp_path1)
+            p1_passed = True
+            if p1_status != 0:
+                p1_passed = False
+                raise subprocess.CalledProcessError(first_finisher_status >> 8, cmd1)  # No need to report the second one. Only the first failure is interesting.
+
+            if exists(tmp_path2):
+                with open(tmp_path2) as f:
+                    output_queue.put(f.read())
+                remove(tmp_path2)
+            if (second_finisher_status != 0):
+                raise subprocess.CalledProcessError(second_finisher_status >> 8, cmd2)
+
         except subprocess.CalledProcessError as e:
             if e.returncode == 1:  # Solution not found - probably due to a timeout. No point in adding more agents
-                with lock:
-                    print(time.strftime('%Y-%m-%dT%H:%M:%S: ') + cmd + ' finished')
-                with open(tmp_path) as f:
-                    output_queue.put(f.read())
                 break
             elif e.returncode == 137:  # Killed by the cgroup's OOM killer
-                with lock:
-                    print(time.strftime('%Y-%m-%dT%H:%M:%S: ') + cmd + ' finished')
-                output_queue.put('-2,' + '=NA(),' * 50 + f'{time.time() - start_time},=NA(),{mem_limit},same as above,/scen/{scen_file_name},{num_agents}\n')
+                output_queue.put('-2,' + '=NA(),' * 28 + f'{(p1_wall_end_time if not p1_passed else p2_wall_end_time) - start_time},=NA(),{mem_limit},same as above,/scen/{scen_file_name},{num_agents if not p1_passed else num_agents + 1}\n')
                 break
             else:
                 raise
         finally:
-            remove(tmp_path)
+            pass
 
 
 def writer_job(output_queue, output_file_name, stop_token, lock):
     import time
+    import os
+    output_file_exists = os.path.exists(output_file_name)
     with lock:
-        print(time.strftime('%Y-%m-%dT%H:%M:%S: ') + f'writer started. Writing to {output_file_name}')
+        if not output_file_exists:
+            print(time.strftime('%Y-%m-%dT%H:%M:%S: ') + f'writer started. Writing to {output_file_name}')
+        else:
+            print(time.strftime('%Y-%m-%dT%H:%M:%S: ') + f'writer started. Appending to {output_file_name}')
     wrote_header = False
-    with open(output_file_name, mode='w') as f:
+    with open(output_file_name, mode='a') as f:
         while True:
             with lock:
                 print(time.strftime('%Y-%m-%dT%H:%M:%S: ') + 'writer is getting next item from the queue')
@@ -234,12 +280,15 @@ if in_multiprocessing_pool:
     lock = manager.Lock()  # A manager allows sharing a lock between multiple worker processes
     stop_token = '!!!STOP!!!'
 with pool:
-    for split_strategy, scen_index, map_name, scen_type in product(
+    for disjoint_split, scen_index, heuristic, map_name, scen_type in product(
             (
-                    #'WIDTH',
-                    #'MVC_BASED',
-                    'NON_DISJOINT',
-            ), range(1, 26), map_names,
+                    False, #True
+            ),
+            range(1, 26),
+            [
+             'CG',
+            ],
+            map_names,
             (
                     'even',
                     'random',
@@ -283,44 +332,49 @@ with pool:
         if in_multiprocessing_pool:
             cmd = f'docker run --rm -it --net=host --memory={mem_limit} --memory-swap={mem_limit} -v {scen_dir}:/scen ' \
                   f'-v {maps_dir}:/maps -v {output_dir}:/output ' \
-                  f'eliboyarski/mapf:cbs-lpa ' \
+                  f'--cap-add=sys_nice ' \
+                  f'--cpuset-cpus={{cpu_id}} ' \
+                  f'eliboyarski/mapf:cbs-fcardinal ' \
                   f'{executable_path} -m "/maps/{map_file_name}" ' \
                   f'-a "/scen/{scen_file_name}" ' \
-                  f'-k %s ' \
-                  f'-o /output/%s -p {split_strategy} --screen 0 --seed {seed} ' \
-                  f'--cutoffTime={timeout_seconds} --verbosity 0 --heuristic {"CG" if use_heuristic else "NONE"} ' \
-                  f'--focalW {focal_w} --childPrefBudget {child_pref_budget} --maxChildPrefOptions {max_child_pref_options} ' \
-                  f'--prefer_f_cardinal {1 if prefer_f_cardinal else 0} ' \
-                  f'--prefer_goal_conflicts {1 if prefer_goal_conflicts else 0}'
+                  f'-k {{num_agents}} ' \
+                  f'--cpuid={{cpu_id}} ' \
+                  f'-o /output/{{tmp_path}} --outputHeader={{write_header}} ' \
+                  f'--disjointSplitting {1 if disjoint_split else 0} --screen 0 --seed {seed} ' \
+                  f'--cutoffTime={timeout_seconds} --heuristics {heuristic} ' \
+                  f'--prioritizingConflicts {"f-cardinal" if prefer_f_cardinal else "g-cardinal"} ' \
+                  f'--bypass {bypass} --rectangleReasoningForHeuristic {1 if rect_in_wdg else 0} ' \
+                  f'--targetReasoning {1 if prefer_target_conflicts else 0} --targetReasoningForHeuristic {1 if target_in_wdg else 0}  ' \
+                  f'--corridorReasoning {1 if corridor_reasoning else 0}'
             with lock:
                 logging.info(f'sending job {scen_file_name}')
             result_objects.append(pool.apply_async(job, (cmd, num_agents_start, mem_limit, scen_file_name, queue, lock)))
         else:
-            for num_agents in range(num_agents_start, 2000):  # We stop on the first failure
+            for num_agents in range(num_agents_start, 10000):  # We stop on the first failure
                 # GLOG_logtostderr=1  ./cmake-...
                 # docker run --memory-swap=10g to avoid swapping
 
                 if in_container:
                     cmd = f'docker run --rm -it --net=host --memory={mem_limit} --memory-swap={mem_limit} -v {scen_dir}:/scen ' \
                           f'-v {maps_dir}:/maps -v {output_dir}:/output ' \
-                          f'search/mapf:cbs-lpa ' \
+                          f'eliboyarski/mapf:cbs-fcardinal ' \
                           f'{executable_path} -m "/maps/{map_file_name}" ' \
                           f'-a "/scen/{scen_file_name}" ' \
                           f'-k {num_agents} ' \
-                          f'-o /output/{output_file_name} -p {split_strategy} --screen 0 --seed {seed} ' \
-                          f'--cutoffTime={timeout_seconds} --verbosity 0 --heuristic {"CG" if use_heuristic else "NONE"} ' \
-                          f'--focalW {focal_w} --childPrefBudget {child_pref_budget} --maxChildPrefOptions {max_child_pref_options} ' \
-                          f'--prefer_f_cardinal {1 if prefer_f_cardinal else 0} ' \
-                          f'--prefer_goal_conflicts {1 if prefer_goal_conflicts else 0}'
+                          f'-o /output/{output_file_name} --disjointSplitting {1 if disjoint_split else 0} --screen 0 --seed {seed} ' \
+                          f'--cutoffTime={timeout_seconds} --heuristics {heuristic} ' \
+                          f'--prioritizingConflicts {"f-cardinal" if prefer_f_cardinal else "g-cardinal"} ' \
+                          f'--bypass {bypass} --rectangleReasoningForHeuristic {1 if rect_in_wdg else 0} ' \
+                          f'--targetReasoning {1 if prefer_target_conflicts else 0}'
                 else:
                     cmd = f'./{executable_name} -m "maps/{map_file_name}" ' \
                           f'-a "scen/{scen_file_name}" ' \
                           f'-k {num_agents} ' \
-                          f'-o {output_file_name} -p {split_strategy} --screen 0 --seed {seed} ' \
-                          f'--cutoffTime={timeout_seconds} --verbosity 0 --heuristic {"CG" if use_heuristic else "NONE"} ' \
-                          f'--focalW {focal_w} --childPrefBudget {child_pref_budget} --maxChildPrefOptions {max_child_pref_options} ' \
-                          f'--prefer_f_cardinal {1 if prefer_f_cardinal else 0} ' \
-                          f'--prefer_goal_conflicts {1 if prefer_goal_conflicts else 0}'
+                          f'-o {output_file_name} --disjointSplitting {1 if disjoint_split else 0} --screen 0 --seed {seed} ' \
+                          f'--cutoffTime={timeout_seconds} --heuristics {heuristic} ' \
+                          f'--prioritizingConflicts {"f-cardinal" if prefer_f_cardinal else "g-cardinal"} ' \
+                          f'--bypass {bypass} --rectangleReasoningForHeuristic {1 if rect_in_wdg else 0} ' \
+                          f'--targetReasoning {1 if prefer_target_conflicts else 0}'
 
                 with lock:
                     logging.info(f'Running {cmd}')
